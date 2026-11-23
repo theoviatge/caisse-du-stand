@@ -1,0 +1,1753 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1d6a4c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Caisse">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Caisse du stand</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one-screen phone app. Awning-striped header, scrolling middle, ticket bar + tab bar at the bottom, sheets slide up. */
+:root {
+  --bg: #eef2ee;
+  --surface: #ffffff;
+  --ink: #15302a;
+  --muted: #5d6f69;
+  --line: #d4ddd8;
+  --accent: #1d6a4c;
+  --accent-ink: #ffffff;
+  --money: #c98a0c;
+  --money-soft: #fbf0d6;
+  --danger: #b4372f;
+  --stripe: #ffffff;
+  --t0: #2f7d5c; --t1: #c98a0c; --t2: #3b6ea8; --t3: #a3455f; --t4: #6b5aa6; --t5: #50707a;
+  --f-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101a17; --surface: #18241f; --ink: #e5eee9; --muted: #98aaa3; --line: #2b3a34;
+  --accent: #43b383; --accent-ink: #08140f; --money: #f0b740; --money-soft: #3a2f14; --danger: #ef7a70; --stripe: #18241f;
+  --t0: #3f9c74; --t1: #c89423; --t2: #4f86c4; --t3: #c0607b; --t4: #8673c4; --t5: #688d98;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #101a17; --surface: #18241f; --ink: #e5eee9; --muted: #98aaa3; --line: #2b3a34;
+  --accent: #43b383; --accent-ink: #08140f; --money: #f0b740; --money-soft: #3a2f14; --danger: #ef7a70; --stripe: #18241f;
+  --t0: #3f9c74; --t1: #c89423; --t2: #4f86c4; --t3: #c0607b; --t4: #8673c4; --t5: #688d98;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.4 var(--f-body); overflow: hidden; }
+* { box-sizing: border-box; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--money); outline-offset: 2px; }
+.num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+.g { padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+
+#app { height: 100%; display: flex; flex-direction: column; }
+
+/* Header with market awning */
+[hidden] { display: none !important; }
+.vh { position: fixed; width: 1px; height: 1px; opacity: 0; overflow: hidden; left: -10px; top: 0; }
+.awning-bar { height: 16px; flex: none; background: repeating-linear-gradient(90deg, var(--accent) 0 26px, var(--stripe) 26px 52px); }
+.awning { height: 11px; flex: none; background: radial-gradient(circle at 13px 0, var(--accent) 11px, transparent 11.5px) 0 0/52px 11px repeat-x, radial-gradient(circle at 39px 0, var(--surface) 11px, transparent 11.5px) 0 0/52px 11px repeat-x; }
+
+header.top { flex: none; background: var(--bg); }
+.top-row { display: flex; align-items: center; gap: 10px; padding-block: 8px 10px; }
+.top-row h1 { font: 800 1.3rem/1 var(--f-display); margin: 0; letter-spacing: -0.01em; flex: 1; min-width: 0; text-wrap: balance; }
+.chip-reg { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-size: .9rem; max-width: 40%; }
+.chip-reg span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex: none; }
+.dot.pending { background: var(--money); animation: pulse 1s infinite alternate; }
+.dot.off { background: var(--danger); }
+@keyframes pulse { to { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .dot.pending { animation: none; } .sheet .panel { transition: none !important; } }
+
+main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-block: 4px 16px; }
+.view { display: flex; flex-direction: column; gap: 14px; }
+.banner { background: var(--money-soft); border-radius: 10px; padding: 10px 12px; font-size: .92rem; }
+.banner.err { border-left: 4px solid var(--danger); }
+
+/* Category chips */
+.cats { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.cats button { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 14px; font-size: .92rem; }
+.cats button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+/* Product grid */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(140px, 44vw), 1fr)); gap: 10px; }
+.tile { position: relative; text-align: left; border: 0; border-radius: 12px; background: var(--surface); padding: 12px 12px 10px; min-height: 92px;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 8px; box-shadow: inset 5px 0 0 var(--tc, var(--t0)); padding-left: 16px;
+  transition: transform .08s; -webkit-tap-highlight-color: transparent; }
+.tile:active { transform: scale(.97); }
+.tile .nm { font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.tile .pr { font-family: var(--f-num); font-weight: 600; font-size: 1.05rem; }
+.tile .q { position: absolute; top: 8px; right: 8px; min-width: 26px; height: 26px; border-radius: 13px; background: var(--money); color: #1b1404; font: 600 .85rem/26px var(--f-num); text-align: center; padding: 0 6px; }
+.tile.special { background: transparent; border: 2px dashed var(--line); box-shadow: none; padding-left: 12px; }
+.tile.special .nm { font-family: var(--f-display); font-weight: 600; }
+.tile .pr small { font-size: .8rem; color: var(--muted); font-weight: 500; }
+.search { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 11px 14px; width: 100%; min-width: 0; }
+.weighed { text-align: center; color: var(--muted); }
+.srow { display: flex; gap: 8px; }
+.srow .search { flex: 1; min-width: 0; }
+.kbtn { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; width: 48px; font-size: 1.2rem; }
+.kbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.vkb { display: flex; flex-direction: column; gap: 6px; }
+.vkb div { display: flex; gap: 4px; justify-content: center; }
+.vkb button { flex: 1 1 0; min-width: 0; max-width: 40px; border: 0; background: var(--surface); border-radius: 8px; padding: 12px 0; font: 600 1rem var(--f-body); box-shadow: 0 1px 0 var(--line); }
+.vkb button.wide { max-width: none; flex: 3 1 0; }
+.tile.photo { border-color: var(--accent); color: var(--accent); }
+.empty { color: var(--muted); text-align: center; padding: 28px 8px; border: 2px dashed var(--line); border-radius: 12px; }
+
+/* Ticket bar */
+.cartbar { flex: none; padding-block: 8px; background: var(--bg); border-top: 1px solid var(--line); }
+.cartbar button { width: 100%; display: flex; align-items: center; gap: 12px; border: 0; border-radius: 14px; background: var(--accent); color: var(--accent-ink); padding: 12px 16px; }
+.cartbar button:disabled { background: var(--line); color: var(--muted); }
+.cartbar .cnt { font-size: .95rem; flex: 1; text-align: left; }
+.cartbar .tot { font: 600 1.3rem/1 var(--f-num); }
+
+/* Tabs */
+nav.tabs { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); background: var(--surface); border-top: 1px solid var(--line); padding-block: 4px; }
+nav.tabs button { border: 0; background: none; padding: 8px 2px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: .78rem; color: var(--muted); letter-spacing: .02em; }
+nav.tabs svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+nav.tabs button[aria-current="page"] { color: var(--accent); font-weight: 700; }
+
+/* Sheets */
+.sheet { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; justify-content: flex-end; background: rgb(0 0 0 / .45); }
+.sheet .panel { background: var(--bg); border-radius: 18px 18px 0 0; max-height: 92%; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;
+  padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+.sheet h2 { font: 800 1.35rem/1.1 var(--f-display); margin: 0; flex: 1; text-wrap: balance; }
+.sheet-head { display: flex; align-items: center; gap: 10px; }
+.x { border: 0; background: var(--surface); width: 38px; height: 38px; border-radius: 50%; font-size: 1.2rem; line-height: 1; }
+
+/* Receipt paper look for the ticket */
+.receipt { background: var(--surface); border-radius: 4px; padding: 14px 14px 18px; position: relative;
+  -webkit-mask: radial-gradient(7px at 50% 100%, transparent 98%, #000) 0 0/14px 100% repeat-x, linear-gradient(#000,#000) top/100% calc(100% - 7px) no-repeat; }
+.receipt .rh { font: 500 .78rem/1.3 var(--f-num); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; display: flex; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+.line { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px dashed var(--line); }
+.line .ln { min-width: 0; overflow-wrap: anywhere; }
+.line .lp { font-family: var(--f-num); font-size: .82rem; color: var(--muted); }
+.stepper { display: flex; align-items: center; gap: 4px; }
+.stepper button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg); font-size: 1.1rem; line-height: 1; }
+.stepper span { min-width: 22px; text-align: center; font-family: var(--f-num); }
+.line .lt { font-family: var(--f-num); font-weight: 600; min-width: 74px; text-align: right; }
+.line .lt s { display: block; font-weight: 500; font-size: .8rem; color: var(--muted); }
+.dlink { border: 0; background: none; padding: 2px 0; color: var(--accent); font-size: .85rem; font-weight: 700; text-align: left; }
+.dedit { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.dedit button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 6px 11px; font: 600 .9rem var(--f-num); }
+.dedit button[aria-pressed="true"] { background: var(--money); color: #1b1404; border-color: var(--money); }
+.dedit input { width: 7.5em; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 6px 11px; font: 600 .9rem var(--f-num); }
+.rtotal { display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; }
+.rtotal b { font: 600 1.6rem/1 var(--f-num); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > * { flex: 1 1 0; }
+.btn { border: 0; border-radius: 12px; padding: 14px 16px; font-weight: 700; background: var(--surface); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.money { background: var(--money); color: #1b1404; }
+.btn.danger { color: var(--danger); background: transparent; border: 1px solid currentColor; }
+.btn.danger.armed { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn:disabled { opacity: .45; cursor: default; }
+
+/* Payment */
+.bigtotal { text-align: center; font: 600 2.6rem/1 var(--f-num); padding: 6px 0; }
+.label { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.paym { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.paym button { border: 2px solid var(--line); background: var(--surface); border-radius: 12px; padding: 14px 4px; font-weight: 700; }
+.paym button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.notes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.notes button { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 12px 2px; font: 600 1rem var(--f-num); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field input, .field select { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 12px; width: 100%; min-width: 0; }
+.field input.big { font: 600 1.4rem var(--f-num); text-align: right; }
+.change { display: flex; justify-content: space-between; align-items: baseline; background: var(--money-soft); border-radius: 12px; padding: 12px 14px; }
+.change b { font: 600 1.7rem/1 var(--f-num); }
+.change.short b { color: var(--danger); }
+
+/* Keypad for free amount */
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.keypad button { border: 0; background: var(--surface); border-radius: 12px; padding: 16px 0; font: 600 1.3rem var(--f-num); }
+
+/* Tickets list */
+.list { display: flex; flex-direction: column; gap: 8px; }
+.tk { background: var(--surface); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; border: 0; text-align: left; width: 100%; }
+.tk-top { display: flex; align-items: baseline; gap: 10px; }
+.tk-top .when { font: 500 .85rem var(--f-num); color: var(--muted); }
+.tk-top .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.tk-top .amt { font: 600 1.1rem var(--f-num); }
+.tk .items { font-size: .9rem; color: var(--muted); overflow-wrap: anywhere; }
+.pill { display: inline-block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); }
+.pill.especes { background: var(--money-soft); border-color: transparent; }
+.pill.carte { background: color-mix(in srgb, var(--t2) 18%, transparent); border-color: transparent; }
+.tk.cancel .amt, .tk.cancel .items { text-decoration: line-through; }
+.tk.cancel { opacity: .6; }
+.tk-detail { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; border-top: 1px dashed var(--line); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 7px 14px; font-size: .9rem; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+
+/* Summary */
+.kpis { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; }
+.kpi { background: var(--surface); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.kpi.main { grid-row: span 2; justify-content: center; background: var(--accent); color: var(--accent-ink); }
+.kpi.main .label { color: inherit; opacity: .8; }
+.kpi b { font: 600 1.25rem var(--f-num); }
+.kpi.main b { font-size: 1.9rem; }
+.card { background: var(--surface); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.card h3 { margin: 0; font: 600 1.05rem var(--f-display); }
+.bar-row { display: grid; grid-template-columns: minmax(70px, 30%) 1fr auto; gap: 10px; align-items: center; font-size: .92rem; }
+.bar-row .bn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar { height: 10px; background: var(--bg); border-radius: 5px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+.bar-row .bv { font-family: var(--f-num); text-align: right; }
+table.sold { width: 100%; border-collapse: collapse; font-size: .92rem; }
+table.sold td { padding: 7px 0; border-bottom: 1px dashed var(--line); }
+table.sold td:not(:first-child) { text-align: right; font-family: var(--f-num); padding-left: 10px; white-space: nowrap; }
+
+/* Products admin */
+.prow { display: flex; align-items: center; gap: 10px; background: var(--surface); border-radius: 12px; padding: 10px 12px; border: 0; width: 100%; text-align: left; }
+.prow .sw { width: 12px; height: 34px; border-radius: 4px; flex: none; }
+.prow .pn { flex: 1; min-width: 0; }
+.prow .pn small { display: block; color: var(--muted); }
+.prow .pp { font: 600 1rem var(--f-num); }
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+.swatches button { width: 38px; height: 38px; border-radius: 50%; border: 3px solid transparent; }
+.swatches button[aria-pressed="true"] { border-color: var(--ink); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hint { font-size: .86rem; color: var(--muted); margin: 0; }
+
+/* Photo recognition */
+.shot { max-height: 34vh; object-fit: contain; border-radius: 12px; background: var(--surface); width: 100%; }
+.found { display: flex; flex-direction: column; gap: 8px; }
+.found .line { background: var(--surface); border-radius: 10px; padding: 8px 10px; border: 0; }
+.spinner { width: 22px; height: 22px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(1turn); } }
+.status { display: flex; gap: 10px; align-items: center; color: var(--muted); }
+
+/* Returns */
+.rt-lot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rt-lot b { font: 700 1.05rem var(--f-num); }
+.rt-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: baseline; width: 100%; border: 0; background: none; padding: 8px 0; border-bottom: 1px dashed var(--line); text-align: left; }
+.rt-row .bv { font-family: var(--f-num); text-align: right; white-space: nowrap; }
+.rt-row.sub { font-weight: 700; border-bottom: 0; }
+.rt-row small { display: block; color: var(--muted); font: .85rem var(--f-num); }
+.rt-items { display: flex; flex-direction: column; gap: 4px; padding: 4px 0 8px 10px; }
+.rt-it { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; font-size: .9rem; }
+.rt-it .bv { font-family: var(--f-num); }
+.rt-it button { border: 1px solid var(--line); background: none; border-radius: 8px; padding: 4px 10px; color: var(--danger); }
+.rt-it button.armed { background: var(--danger); color: #fff; }
+.lotval { font: 700 2rem var(--f-num); text-align: center; letter-spacing: .04em; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 10px; width: 100%; }
+.lots { display: flex; gap: 8px; flex-wrap: wrap; }
+.lots button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 7px 14px; font-family: var(--f-num); }
+.toast-undo { margin-left: 12px; border: 0; background: var(--money); color: #1b1404; border-radius: 8px; padding: 6px 10px; font-weight: 700; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(150px + env(safe-area-inset-bottom, 0px)); z-index: 40; background: var(--ink); color: var(--bg);
+  padding: 12px 18px; border-radius: 12px; max-width: calc(100% - 32px); font-weight: 700; text-align: center; box-shadow: 0 6px 24px rgb(0 0 0 / .25); }
+.syncbtn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 10px; font-size: .8rem; max-width: 34%; }
+.syncbtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.camwrap { position: relative; border-radius: 14px; overflow: hidden; background: #000; aspect-ratio: 4 / 3; max-width: 100%; }
+.camwrap video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.camline { position: absolute; left: 8%; right: 8%; top: 50%; height: 2px; background: #ff4d4d; box-shadow: 0 0 8px #ff4d4d; }
+.camwrap::after { content: ""; position: absolute; inset: 22% 6%; border: 2px solid rgb(255 255 255 / .8); border-radius: 10px; }
+html, body { margin: 0; padding: 0; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="top">
+    <div class="awning-bar"></div>
+    <div class="awning" aria-hidden="true"></div>
+    <div class="top-row g">
+      <h1>Caisse du stand</h1>
+      <button class="syncbtn" id="syncBtn" aria-label="Réglages de synchronisation"><i class="dot" id="syncDot"></i><span id="syncLbl">…</span></button>
+      <button class="chip-reg" id="regBtn" aria-label="Changer le nom de cette caisse"><span id="regName">Caisse</span></button>
+    </div>
+  </header>
+
+  <main class="g" id="main">
+    <div class="banner err" id="dbBanner" hidden></div>
+    <div class="banner" id="offBanner" role="status" hidden></div>
+
+    <section class="view" id="v-caisse">
+      <div class="srow"><input type="search" class="search" id="q" placeholder="Chercher un produit" aria-label="Chercher un produit" autocomplete="off"><button class="kbtn" data-vkb="q" aria-label="Afficher le clavier" aria-pressed="false">⌨</button></div>
+      <div class="vkb" data-vkb-for="q" hidden></div>
+      <div class="cats" id="cats" role="toolbar" aria-label="Catégories"></div>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <section class="view" id="v-tickets" hidden>
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Filtrer">
+          <button id="fAll" aria-pressed="true">Toutes les caisses</button>
+          <button id="fMine" aria-pressed="false">Ma caisse</button>
+        </div>
+        <span class="label" id="tkDayLbl"></span>
+      </div>
+      <div class="field"><label class="label" for="fVente">Vente</label><select id="fVente" data-vfilter></select></div>
+      <div class="list" id="tkList"></div>
+    </section>
+
+    <section class="view" id="v-bilan" hidden>
+      <div class="two">
+        <div class="field"><label class="label" for="bilanDay">Journée</label><input type="date" id="bilanDay"></div>
+        <div class="field"><label class="label" for="bVente">Vente</label><select id="bVente" data-vfilter></select></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi main"><span class="label">Chiffre du jour</span><b id="kCa">0,00 €</b></div>
+        <div class="kpi"><span class="label">Tickets</span><b id="kN">0</b></div>
+        <div class="kpi"><span class="label">Panier moyen</span><b id="kAvg">–</b></div>
+      </div>
+      <div class="card"><h3>Par moyen de paiement</h3><div id="bPay"></div><p class="hint" id="bCash"></p></div>
+      <div class="card" id="bVenteCard"><h3>Par vente</h3><div id="bVen"></div></div>
+      <div class="card"><h3>Par caisse</h3><div id="bReg"></div></div>
+      <div class="card"><h3>Articles vendus</h3><div style="overflow-x:auto"><table class="sold" id="bSold"></table></div></div>
+      <div class="row">
+        <button class="btn" id="copyBilan">Copier le bilan</button>
+        <button class="btn" id="dlCsv" hidden>Télécharger (CSV)</button>
+      </div>
+    </section>
+
+    <section class="view" id="v-retours" hidden>
+      <div class="field"><label class="label" for="rtClient">Client</label><div class="srow"><input id="rtClient" class="search" maxlength="40" placeholder="Nom du client" list="rtClientList" autocomplete="off"><button class="kbtn" data-vkb="rtClient" aria-label="Afficher le clavier" aria-pressed="false">⌨</button></div><datalist id="rtClientList"></datalist></div>
+      <div class="vkb" data-vkb-for="rtClient" data-upper hidden></div>
+      <div class="lots" id="rtClientRecent"></div>
+      <div class="field"><label class="label" for="rtDay">Feuille de retours du</label><input type="date" id="rtDay"></div>
+      <p class="hint" id="rtHelp">Feuille en cours. Scanne les étiquettes : au premier article d'un produit, la caisse te demande son lot ; ensuite tout va dans ce lot jusqu'à ce que tu touches « changer ».</p>
+      <div class="list" id="rtList"></div>
+      <div class="kpis">
+        <div class="kpi main"><span class="label">Total des retours</span><b id="rtTot">0,00 €</b></div>
+        <div class="kpi"><span class="label">Articles</span><b id="rtN">0</b></div>
+        <div class="kpi"><span class="label">Poids</span><b id="rtKg">–</b></div>
+      </div>
+      <button class="btn" id="rtManual">+ Ajouter un article sans code-barres</button>
+      <div class="row">
+        <button class="btn" id="rtCopy">Copier la feuille</button>
+        <button class="btn" id="rtCsv" hidden>Télécharger (Excel)</button>
+      </div>
+      <button class="btn primary" id="rtFinish">Terminer les retours</button>
+      <p class="hint">Chaque scan est enregistré tout de suite. « Terminer » clôt cette feuille et l'archive ci-dessous ; les scans suivants commencent une nouvelle feuille.</p>
+      <div id="rtDoneWrap" class="list" hidden><h3 class="label">Feuilles terminées</h3><div class="list" id="rtDone"></div></div>
+    </section>
+
+    <section class="view" id="v-produits" hidden>
+      <div class="card" id="pForm">
+        <h3 id="pFormTitle">Ajouter un produit</h3>
+        <div class="field"><label class="label" for="pName">Nom</label><input id="pName" maxlength="60" placeholder="Pot de miel 250 g" autocomplete="off"></div>
+        <div class="two">
+          <div class="field"><label class="label" for="pUnit">Vendu</label><select id="pUnit"><option value="u">à l'unité</option><option value="kg">au kilo</option></select></div>
+          <div class="field"><label class="label" for="pPrice">Prix (€)</label><input id="pPrice" inputmode="decimal" placeholder="6,50" autocomplete="off"></div>
+          </div>
+        <div class="field"><label class="label" for="pCat">Catégorie</label><input id="pCat" maxlength="30" placeholder="Canards gras" list="catList" autocomplete="off"><datalist id="catList"></datalist></div>
+        <div class="field"><label class="label" for="pEan">Code-barres relié (les 7 premiers chiffres de l'étiquette)</label><input id="pEan" maxlength="20" inputmode="numeric" placeholder="aucun" autocomplete="off"></div>
+        <div class="field"><label class="label" for="pLook">À quoi il ressemble (pour la photo)</label><input id="pLook" maxlength="160" placeholder="pot en verre, couvercle doré, étiquette jaune" autocomplete="off"></div>
+        <div class="field"><span class="label">Couleur du bouton</span><div class="swatches" id="pColors"></div></div>
+        <div class="row">
+          <button class="btn primary" id="pSave">Ajouter</button>
+          <button class="btn" id="pCancel" hidden>Annuler</button>
+        </div>
+        <button class="btn danger" id="pDel" hidden>Supprimer ce produit</button>
+      </div>
+      <div class="list" id="pList"></div>
+    </section>
+  </main>
+
+  <div class="cartbar g" id="cartbar">
+    <button id="openTicket" disabled><span class="cnt" id="cartCnt">Ticket vide</span><span class="tot" id="cartTot">0,00 €</span></button>
+  </div>
+
+  <nav class="tabs g" aria-label="Sections">
+    <button data-view="caisse" aria-current="page"><svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="11" rx="2"/><path d="M7 9V5h10v4M7 14h2M11 14h2M15 14h2"/></svg>Caisse</button>
+    <button data-view="tickets"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>Tickets</button>
+    <button data-view="bilan"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Bilan</button>
+    <button data-view="retours"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>Retours</button>
+    <button data-view="produits"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/></svg>Produits</button>
+  </nav>
+</div>
+
+
+<div class="sheet" id="sTicket" hidden>
+  <div class="panel">
+    <div class="sheet-head"><h2>Ticket en cours</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <div class="receipt">
+      <div class="rh"><span id="rReg"></span><span id="rWhen"></span></div>
+      <div id="rLines"></div>
+      <div class="rtotal"><span class="label">Total</span><b id="rTot">0,00 €</b></div>
+    </div>
+    <div class="row">
+      <button class="btn danger" id="clearCart">Vider</button>
+      <button class="btn primary" id="toPay" style="flex:2">Encaisser</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="sPay" hidden>
+  <div class="panel">
+    <div class="sheet-head"><h2>Encaissement</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <div class="bigtotal" id="payTot">0,00 €</div>
+    <div class="weighed" id="payDisc" hidden></div>
+    <div class="field"><span class="label">Arrondir à la baisse</span><div class="notes" id="rounds"></div><input id="roundInput" class="big" inputmode="decimal" placeholder="Montant à encaisser" autocomplete="off" hidden></div>
+    <div class="paym" role="group" aria-label="Moyen de paiement">
+      <button data-pay="especes" aria-pressed="false">Espèces</button>
+      <button data-pay="carte" aria-pressed="false">Carte</button>
+      <button data-pay="autre" aria-pressed="false">Autre</button>
+    </div>
+    <div id="cashBox" class="view" hidden>
+      <div class="field"><label class="label" for="given">Montant reçu</label><input id="given" class="big" inputmode="decimal" placeholder="0,00" autocomplete="off"></div>
+      <div class="notes" id="notes"></div>
+      <div class="change" id="changeBox"><span class="label">À rendre</span><b id="changeVal">–</b></div>
+    </div>
+    <div id="cardBox" class="view" hidden data-off>
+      <p class="hint">Encaisse <b id="cardAmt" class="num"></b> sur SumUp, puis reviens ici valider la vente.</p>
+      <div class="row">
+        <button class="btn" id="copyAmt">Copier le montant</button>
+        <a class="btn money" id="openSumup" href="sumupmerchant://" target="_blank" rel="noopener" style="text-align:center;text-decoration:none">Ouvrir SumUp</a>
+      </div>
+    </div>
+    <button class="btn primary" id="confirmPay" disabled>Valider la vente</button>
+  </div>
+</div>
+
+<div class="sheet" id="sFree" hidden>
+  <div class="panel">
+    <div class="sheet-head"><h2>Montant libre</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <div class="field"><label class="label" for="freeName">Libellé</label><input id="freeName" maxlength="60" placeholder="Divers" autocomplete="off"></div>
+    <div class="bigtotal" id="freeAmt">0,00 €</div>
+    <div class="keypad" id="keypad"></div>
+    <button class="btn primary" id="freeAdd">Ajouter au ticket</button>
+  </div>
+</div>
+
+<div class="sheet" id="sPhoto" hidden>
+  <div class="panel">
+    <div class="sheet-head"><h2>Reconnaissance photo</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <img class="shot" id="shot" alt="Photo du produit">
+    <div class="status" id="phStatus"><i class="spinner"></i><span>Je regarde la photo…</span></div>
+    <div class="found" id="phFound" hidden></div>
+    <div class="row" id="phActions" hidden>
+      <button class="btn" id="phRetake">Reprendre</button>
+      <button class="btn primary" id="phAdd" style="flex:2">Ajouter au ticket</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="sWeight" hidden>
+  <div class="panel">
+    <div class="sheet-head"><h2 id="wTitle">Poids</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <div class="weighed" id="wPerKg"></div>
+    <div class="bigtotal" id="wGrams">0 g</div>
+    <div class="change"><span class="label">Prix</span><b id="wPrice">0,00 €</b></div>
+    <div class="keypad" id="wKeypad"></div>
+    <button class="btn primary" id="wAdd">Ajouter au ticket</button>
+  </div>
+</div>
+
+<div class="sheet" id="sScan" hidden>
+  <div class="panel">
+    <div class="sheet-head"><h2>Code-barres inconnu</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <p class="hint" id="scanInfo"></p>
+    <div class="cats" id="scanCats" role="toolbar" aria-label="Rayons"></div>
+    <div class="srow"><input type="search" class="search" id="scanQ" placeholder="Ou chercher par nom" aria-label="Chercher le produit" autocomplete="off"><button class="kbtn" data-vkb="scanQ" aria-label="Afficher le clavier" aria-pressed="false">⌨</button></div>
+    <div class="vkb" data-vkb-for="scanQ" hidden></div>
+    <div class="list" id="scanList"></div>
+  </div>
+</div>
+
+<div class="sheet" id="sLot" hidden>
+  <div class="panel">
+    <div class="sheet-head"><h2 id="lotTitle">Numéro de lot</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <p class="hint" id="lotInfo"></p>
+    <input id="lotVal" class="lotval" maxlength="20" inputmode="numeric" placeholder="1313" autocomplete="off" aria-label="Numéro de lot">
+    <div class="lots" id="lotRecent"></div>
+    <button class="btn primary" id="lotOk">Valider le lot</button>
+    <div class="keypad" id="lotKeys"></div>
+    <button class="btn" type="button" data-vkb="lotVal" aria-pressed="false">ABC · ajouter des lettres</button>
+    <div class="vkb" data-vkb-for="lotVal" data-upper hidden></div>
+  </div>
+</div>
+
+<div class="sheet" id="sSync" hidden>
+  <div class="panel">
+    <div class="sheet-head"><h2>Synchronisation</h2><button class="x" data-close aria-label="Fermer">×</button></div>
+    <p class="hint">Tout est enregistré sur ce téléphone, même sans réseau. Dès qu'il y a internet, la caisse envoie les ventes et les retours au tableau Google Sheets et récupère ceux des autres téléphones, toute seule.</p>
+    <p class="hint" id="syInfo"></p>
+    <div class="field"><label class="label" for="syUrl">Adresse du tableau (Apps Script) ou lien de réglage</label><input id="syUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="field"><label class="label" for="syCode">Code secret</label><input id="syCode" placeholder="le même sur chaque téléphone" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="row"><button class="btn primary" id="sySave">Enregistrer</button><button class="btn" id="syNow">Synchroniser maintenant</button></div>
+    <h3 class="label">Sauvegarde</h3>
+    <div class="row"><button class="btn" id="bkSave">Télécharger une sauvegarde</button><label class="btn" for="bkFile" style="text-align:center">Importer une sauvegarde</label></div>
+    <input type="file" id="bkFile" accept=".json,application/json" class="vh" tabindex="-1">
+    <p class="hint">L'import ajoute les produits, ventes et retours du fichier sans rien effacer ; ceux qui existent déjà ne sont pas dupliqués.</p>
+  </div>
+</div>
+
+<div class="sheet" id="sCam" hidden>
+  <div class="panel">
+    <div class="sheet-head"><h2>Scanner le code-barres</h2><button class="x" id="camClose" aria-label="Fermer">×</button></div>
+    <div class="camwrap"><video id="camVideo" playsinline muted autoplay></video><div class="camline" aria-hidden="true"></div></div>
+    <p class="hint" id="camHint">Place le code-barres dans le cadre, bien à plat et éclairé. Le scan se fait tout seul.</p>
+    <button class="btn" id="camTorch" type="button" hidden>Allumer la lampe</button>
+  </div>
+</div>
+
+<div class="sheet" id="sName" hidden>
+  <div class="panel">
+    <div class="sheet-head"><h2>Qui vend, et où ?</h2></div>
+    <p class="hint">Ces deux infos apparaissent sur les tickets de ce téléphone, pour savoir qui a vendu quoi et sur quelle foire. Tu peux les changer à tout moment en touchant le nom en haut.</p>
+    <div class="field"><label class="label" for="regInput">Nom de la caisse</label><input id="regInput" maxlength="24" placeholder="Théo, Caisse 2…" autocomplete="off"></div>
+    <div class="field"><label class="label" for="venteInput">Vente du jour</label><input id="venteInput" maxlength="40" placeholder="Foire de Lavaur, Marché de Rabastens…" list="venteList" autocomplete="off"><datalist id="venteList"></datalist></div>
+    <button class="btn primary" id="regSave">C'est parti</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(() => {
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const fmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
+const eur = c => fmt.format((c || 0) / 100);
+const parseEur = s => { const n = parseFloat(String(s ?? "").replace(/\s/g, "").replace(",", ".").replace(/[^\d.]/g, "")); return isFinite(n) ? Math.round(n * 100) : NaN; };
+const dayOf = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const today = () => dayOf(new Date());
+const hhmm = iso => { const d = new Date(iso); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const ls = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+const norm = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const PAY = { especes: "Espèces", carte: "Carte", autre: "Autre" };
+const NCOLORS = 6;
+
+const S = {
+  db: null, user: null, uid: null, sample: null, canPhoto: false, downloads: null, readOnly: false,
+  products: [], tickets: [], day: today(), unsubT: null,
+  vente: ls.get("caisse.vente", ""), venteHist: ls.get("caisse.ventes", []), vFilter: null, cart: ls.get("caisse.cart", []), cat: "Tout", q: "", wp: null, w: "", wq: [], reg: ls.get("caisse.nom", ""),
+  view: "caisse", pending: 0, mineOnly: false, openTk: null,
+  pay: null, editing: null, pColor: 0, free: "", found: [], dbState: "loading",
+  outbox: ls.get("caisse.outbox", []), offline: false, flushing: false,
+  retours: [], rtSheets: [], rtDay: today(), rtClient: ls.get("caisse.rtClient", ""), rtClients: ls.get("caisse.rtClients", []), unsubR: null, rtLots: ls.get("caisse.rtLots", {}), rtOpen: null, pickMode: null, wMode: null
+};
+
+/* ---------- toast & sheets ---------- */
+let toastT;
+function toast(msg, ms = 2600, undo) {
+  const t = $("#toast"); t.replaceChildren(el("span", null, msg)); t.hidden = false; clearTimeout(toastT);
+  if (undo) { const b = el("button", "toast-undo", "Annuler"); b.onclick = () => { undo(); t.hidden = true; }; t.append(b); }
+  toastT = setTimeout(() => t.hidden = true, ms);
+}
+function openSheet(id) { $$(".sheet").forEach(s => s.hidden = s.id !== id); }
+function closeSheets() { $$(".sheet").forEach(s => { if (s.id !== "sName" || S.reg) s.hidden = true; }); }
+$$(".sheet").forEach(s => s.addEventListener("click", e => { if (e.target === s && s.id !== "sName") s.hidden = true; }));
+$$("[data-close]").forEach(b => b.addEventListener("click", closeSheets));
+
+/* two-tap confirm (dialogs are not available) */
+function armed(btn, label, run) {
+  if (btn.dataset.armed === "1") { btn.dataset.armed = ""; btn.classList.remove("armed"); run(); return; }
+  const orig = btn.textContent; btn.dataset.armed = "1"; btn.classList.add("armed"); btn.textContent = label;
+  setTimeout(() => { if (btn.dataset.armed === "1") { btn.dataset.armed = ""; btn.classList.remove("armed"); btn.textContent = orig; } }, 3000);
+}
+
+/* ---------- register name ---------- */
+function renderReg() { $("#regName").textContent = (S.reg || "Sans nom") + (S.vente ? " · " + S.vente : ""); }
+function knownVentes() { return [...new Set([...allTickets().map(t => t.vente).filter(Boolean), ...S.venteHist])].sort((a, b) => a.localeCompare(b, "fr")); }
+function openRegSheet() {
+  $("#regInput").value = S.reg; $("#venteInput").value = S.vente;
+  $("#venteList").replaceChildren(...knownVentes().map(v => { const o = el("option"); o.value = v; return o; }));
+  openSheet("sName"); (S.reg ? $("#venteInput") : $("#regInput")).focus();
+}
+$("#regBtn").addEventListener("click", openRegSheet);
+$("#regSave").addEventListener("click", () => {
+  const v = $("#regInput").value.trim(); if (!v) { $("#regInput").focus(); return; }
+  S.reg = v; ls.set("caisse.nom", v);
+  S.vente = $("#venteInput").value.trim(); ls.set("caisse.vente", S.vente); ls.set("caisse.venteDay", today());
+  if (S.vente && !S.venteHist.includes(S.vente)) { S.venteHist = [S.vente, ...S.venteHist].slice(0, 20); ls.set("caisse.ventes", S.venteHist); }
+  if (S.vFilter !== null && S.vente) S.vFilter = S.vente;
+  S.venteDay = today(); savePrefs();
+  renderAll(); $("#sName").hidden = true;
+});
+$("#regInput").addEventListener("keydown", e => { if (e.key === "Enter") $("#venteInput").focus(); });
+$("#venteInput").addEventListener("keydown", e => { if (e.key === "Enter") $("#regSave").click(); });
+
+/* ---------- sync indicator: this phone → Google Sheets ---------- */
+function renderSync() {
+  if (!ST) return; /* the local store is set up a little further down */
+  const d = $("#syncDot"), n = dirtyCount();
+  const state = !ST.url ? "nosync" : S.offline ? "off" : (syncing || n) ? "pending" : ST.lastErr ? "err" : "ok";
+  d.className = "dot" + (state === "off" || state === "err" ? " off" : state === "pending" || state === "nosync" ? " pending" : "");
+  $("#syncLbl").textContent = state === "nosync" ? "Synchro à régler" : state === "off" ? "Hors ligne" + (n ? " · " + n : "") : state === "pending" ? "Envoi…" + (n ? " " + n : "") : state === "err" ? "Synchro en erreur" : "Synchronisé";
+  const b = $("#offBanner"); b.hidden = !(n && (S.offline || state === "err"));
+  b.textContent = n + (n > 1 ? " saisies sont gardées" : " saisie est gardée") + " sur ce téléphone. Elles partiront toutes seules au retour du réseau.";
+  if (!$("#sSync").hidden) renderSyncSheet();
+}
+async function tracked(p) { S.pending++; renderSync(); try { return await p; } finally { S.pending--; renderSync(); } }
+function dbError(e, what) {
+  const c = e && e.code;
+  if (c === "invalid_argument") { S.readOnly = true; showBanner("Ce compte peut voir la caisse mais pas enregistrer. Demande au propriétaire de la page de t'inviter comme éditeur."); }
+  else if (c === "quota_exceeded") toast("La base est pleine : supprime d'anciens tickets ou demande de l'aide.", 5000);
+  else toast("Échec : " + what + ". Vérifie la connexion et réessaie.", 4000);
+}
+function showBanner(msg) { const b = $("#dbBanner"); b.textContent = msg; b.hidden = !msg; }
+
+/* ---------- views ---------- */
+function setView(v) {
+  S.view = v;
+  $$("nav.tabs button").forEach(b => { if (b.dataset.view === v) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
+  ["caisse", "tickets", "bilan", "retours", "produits"].forEach(n => $("#v-" + n).hidden = n !== v);
+  $("#cartbar").hidden = v !== "caisse";
+  $("#main").scrollTop = 0;
+  if (v === "tickets" || v === "bilan") { if (S.day !== $("#bilanDay").value) $("#bilanDay").value = S.day; }
+  renderAll();
+}
+$$("nav.tabs button").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
+
+/* ---------- products ---------- */
+function sortedProducts() { return [...S.products].sort((a, b) => (a.cat || "").localeCompare(b.cat || "", "fr") || a.name.localeCompare(b.name, "fr")); }
+function categories() { return [...new Set(S.products.map(p => p.cat).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr")); }
+
+function renderCaisse() {
+  const cats = categories(), wrap = $("#cats"); wrap.replaceChildren();
+  if (S.cat !== "Tout" && !cats.includes(S.cat)) S.cat = "Tout";
+  wrap.hidden = cats.length < 2;
+  ["Tout", ...cats].forEach(c => { const b = el("button", null, c); b.setAttribute("aria-pressed", String(S.cat === c)); b.onclick = () => { S.cat = c; renderCaisse(); }; wrap.append(b); });
+
+  const g = $("#grid"); g.replaceChildren();
+  {
+    const ph = el("button", "tile special photo");
+    ph.append(el("span", "nm", "Scanner"), el("span", "hint", "Code-barres avec l'appareil photo"));
+    ph.onclick = () => camStart(code => handleScan(code));
+    g.append(ph);
+  }
+  const fr = el("button", "tile special"); fr.append(el("span", "nm", "Montant libre"), el("span", "hint", "Saisir un prix"));
+  fr.onclick = () => { S.free = ""; $("#freeName").value = ""; renderFree(); openSheet("sFree"); }; g.append(fr);
+
+  const nq = norm(S.q);
+  const list = sortedProducts().filter(p => nq ? norm(p.name + " " + (p.cat || "")).includes(nq) : (S.cat === "Tout" || p.cat === S.cat));
+  $("#cats").hidden = $("#cats").hidden || !!nq;
+  if (!S.products.length) {
+    const e = el("div", "empty", S.dbState === "loading" ? "Chargement des produits…" : "Aucun produit pour l'instant. Ajoute tes articles dans l'onglet Produits.");
+    e.style.gridColumn = "1 / -1"; g.append(e);
+  }
+  list.forEach(p => {
+    const b = el("button", "tile"); b.style.setProperty("--tc", `var(--t${(p.color || 0) % NCOLORS})`);
+    const pr = el("span", "pr", eur(p.price)); if (p.unit === "kg") pr.append(el("small", null, " /kg"));
+    b.append(el("span", "nm", p.name), pr);
+    const q = S.cart.filter(l => l.pid === p.id).reduce((s, l) => s + l.qty, 0);
+    if (q) b.append(el("span", "q", String(q)));
+    b.onclick = () => { if (p.unit === "kg") { openWeight([p]); return; } addToCart(p, 1); if (navigator.vibrate) try { navigator.vibrate(15); } catch {} };
+    g.append(b);
+  });
+}
+
+$("#q").addEventListener("input", e => { S.q = e.target.value; renderCaisse(); });
+
+/* on-screen keyboard: iOS hides its own keyboard while a Bluetooth scanner is paired */
+const VKB_ROWS = ["AZERTYUIOP", "QSDFGHJKLM", "WXCVBN"];
+$$(".vkb").forEach(box => {
+  const inp = document.getElementById(box.dataset.vkbFor);
+  const type = fn => { fn(); inp.dispatchEvent(new Event("input", { bubbles: true })); };
+  VKB_ROWS.forEach((r, i) => {
+    const row = el("div");
+    [...r].forEach(ch => { const b = el("button", null, ch); b.type = "button"; b.onclick = () => type(() => inp.value += box.hasAttribute("data-upper") ? ch : ch.toLowerCase()); row.append(b); });
+    if (i === 2) { const del = el("button", "wide", "⌫"); del.type = "button"; del.setAttribute("aria-label", "Effacer"); del.onclick = () => type(() => inp.value = inp.value.slice(0, -1)); row.append(del); }
+    box.append(row);
+  });
+  const last = el("div"), sp = el("button", "wide", "espace"), clr = el("button", "wide", "Tout effacer");
+  sp.type = clr.type = "button";
+  sp.onclick = () => type(() => inp.value += " "); clr.onclick = () => type(() => inp.value = "");
+  last.append(clr, sp); box.append(last);
+  box.addEventListener("pointerdown", e => e.preventDefault());
+});
+$$("[data-vkb]").forEach(b => b.addEventListener("click", () => {
+  const box = document.querySelector(`[data-vkb-for="${b.dataset.vkb}"]`);
+  box.hidden = !box.hidden; b.setAttribute("aria-pressed", String(!box.hidden));
+}));
+
+/* ---------- cart ---------- */
+function saveCart() { ls.set("caisse.cart", S.cart); }
+/* per-line discount: l.pct (percent) or l.off (euros, in cents) */
+function lineGross(l) { return l.price * l.qty; }
+function lineDisc(l) { const g = lineGross(l); return Math.max(0, Math.min(g, l.pct ? Math.round(g * l.pct / 100) : (l.off || 0))); }
+function lineNet(l) { return lineGross(l) - lineDisc(l); }
+function cartTotal() { return S.cart.reduce((s, l) => s + lineNet(l), 0); }
+function cartCount() { return S.cart.reduce((s, l) => s + l.qty, 0); }
+function addToCart(p, qty) {
+  const l = S.cart.find(x => x.pid === p.id && x.price === p.price);
+  if (l) l.qty += qty; else S.cart.push({ key: rid(), pid: p.id, name: p.name, price: p.price, qty });
+  saveCart(); renderCart(); renderCaisse();
+}
+function renderCart() {
+  const n = cartCount();
+  $("#cartCnt").textContent = n ? n + (n > 1 ? " articles · voir le ticket" : " article · voir le ticket") : "Ticket vide";
+  $("#cartTot").textContent = eur(cartTotal());
+  $("#openTicket").disabled = !n;
+  $("#rReg").textContent = S.reg || "Caisse";
+  $("#rWhen").textContent = new Date().toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" }) + " " + hhmm(new Date().toISOString());
+  const box = $("#rLines"); box.replaceChildren();
+  S.cart.forEach(l => {
+    const r = el("div", "line"), nm = el("div", "ln");
+    nm.append(el("div", null, l.name), el("div", "lp", eur(l.price) + " l'unité"));
+    const st = el("div", "stepper"), m = el("button", null, "−"), q = el("span", null, String(l.qty)), p = el("button", null, "+");
+    m.setAttribute("aria-label", "Retirer un " + l.name); p.setAttribute("aria-label", "Ajouter un " + l.name);
+    m.onclick = () => { l.qty--; if (l.qty <= 0) S.cart = S.cart.filter(x => x !== l); saveCart(); renderCart(); renderCaisse(); if (!S.cart.length) closeSheets(); };
+    p.onclick = () => { l.qty++; saveCart(); renderCart(); renderCaisse(); };
+    st.append(m, q, p);
+    const lt = el("div", "lt"), d = lineDisc(l);
+    if (d) lt.append(el("s", null, eur(lineGross(l))));
+    lt.append(document.createTextNode(eur(lineNet(l))));
+    const dl = el("button", "dlink", d ? "Remise " + (l.pct ? "−" + l.pct + " %" : "−" + eur(d)) + " · modifier" : "+ Remise");
+    dl.onclick = () => { S.discOpen = S.discOpen === l.key ? null : l.key; renderCart(); };
+    nm.append(dl);
+    r.append(nm, st, lt);
+    if (S.discOpen === l.key) {
+      const ed = el("div", "dedit");
+      [5, 10, 15, 20, 30, 50].forEach(pc => { const b = el("button", null, "−" + pc + " %"); b.setAttribute("aria-pressed", String(l.pct === pc)); b.onclick = () => { l.pct = pc; delete l.off; S.discOpen = null; saveCart(); renderCart(); renderCaisse(); }; ed.append(b); });
+      const inp = el("input"); inp.inputMode = "decimal"; inp.placeholder = "− € montant"; inp.setAttribute("aria-label", "Remise en euros sur " + l.name);
+      if (l.off) inp.value = (l.off / 100).toFixed(2).replace(".", ",");
+      inp.onchange = () => { const v = parseEur(inp.value); if (!isNaN(v) && v > 0) { l.off = Math.min(v, lineGross(l)); delete l.pct; } else delete l.off; S.discOpen = null; saveCart(); renderCart(); renderCaisse(); };
+      inp.onkeydown = e => { if (e.key === "Enter") inp.blur(); };
+      ed.append(inp);
+      if (d) { const z = el("button", null, "Aucune"); z.onclick = () => { delete l.pct; delete l.off; S.discOpen = null; saveCart(); renderCart(); renderCaisse(); }; ed.append(z); }
+      r.append(ed);
+    }
+    box.append(r);
+  });
+  $("#rTot").textContent = eur(cartTotal());
+}
+$("#openTicket").addEventListener("click", () => { renderCart(); openSheet("sTicket"); });
+$("#clearCart").addEventListener("click", e => armed(e.currentTarget, "Vraiment vider ?", () => { S.cart = []; saveCart(); renderCart(); renderCaisse(); closeSheets(); $("#clearCart").textContent = "Vider"; }));
+$("#toPay").addEventListener("click", () => { S.pay = null; S.paid = null; $("#given").value = ""; $("#roundInput").value = ""; $("#roundInput").hidden = true; renderPay(); openSheet("sPay"); });
+
+/* ---------- payment ---------- */
+function noteSuggestions(total) {
+  const out = new Set([total]);
+  [500, 1000, 2000, 5000, 10000].forEach(n => { if (n > total) out.add(Math.ceil(total / n) * n); });
+  [100, 200].forEach(n => { const r = Math.ceil(total / n) * n; if (r > total) out.add(r); });
+  return [...out].sort((a, b) => a - b).slice(0, 4);
+}
+/* rounding down: S.paid is the amount actually charged (null = full total) */
+function payTotal() { const t = cartTotal(); return S.paid != null && S.paid < t ? S.paid : t; }
+function renderPay() {
+  const full = cartTotal(), t = payTotal();
+  $("#payTot").textContent = eur(t);
+  $("#payDisc").hidden = t === full;
+  $("#payDisc").textContent = "Au lieu de " + eur(full) + " · remise " + eur(full - t);
+  const rb = $("#rounds"); rb.replaceChildren();
+  const opts = [...new Set([100, 500, 1000].map(st => Math.floor(full / st) * st).filter(v => v > 0 && v < full))].sort((a, b) => b - a).slice(0, 3);
+  opts.forEach(v => { const b = el("button", null, eur(v).replace(",00", "")); b.setAttribute("aria-pressed", String(t === v)); b.onclick = () => { S.paid = v; $("#given").value = ""; renderPay(); }; rb.append(b); });
+  const other = el("button", null, "Autre"); other.onclick = () => { $("#roundInput").hidden = false; $("#roundInput").focus(); }; rb.append(other);
+  if (t !== full) { const c = el("button", null, "Sans"); c.onclick = () => { S.paid = null; $("#roundInput").value = ""; $("#roundInput").hidden = true; $("#given").value = ""; renderPay(); }; rb.append(c); }
+  $$("[data-pay]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.pay === S.pay)));
+  $("#cashBox").hidden = S.pay !== "especes";
+
+  const notes = $("#notes"); notes.replaceChildren();
+  noteSuggestions(t).forEach(v => { const b = el("button", null, v === t ? "Compte" : eur(v).replace(",00", "")); b.onclick = () => { $("#given").value = (v / 100).toFixed(2).replace(".", ","); renderChange(); }; notes.append(b); });
+  renderChange();
+}
+$("#roundInput").addEventListener("input", e => { const v = parseEur(e.target.value); S.paid = isNaN(v) || v <= 0 ? null : v; $("#given").value = ""; const f = document.activeElement; renderPay(); f && f.focus(); });
+function renderChange() {
+  const t = payTotal(), g = parseEur($("#given").value), box = $("#changeBox");
+  let ok = !!S.pay && t > 0 && !S.readOnly && !!S.db;
+  if (S.pay === "especes") {
+    if (isNaN(g)) { $("#changeVal").textContent = "–"; box.classList.remove("short"); }
+    else if (g < t) { $("#changeVal").textContent = "manque " + eur(t - g); box.classList.add("short"); ok = false; }
+    else { $("#changeVal").textContent = eur(g - t); box.classList.remove("short"); }
+  }
+  $("#confirmPay").disabled = !ok;
+}
+$$("[data-pay]").forEach(b => b.addEventListener("click", () => { S.pay = b.dataset.pay; renderPay(); if (S.pay === "especes") $("#given").focus(); }));
+$("#given").addEventListener("input", renderChange);
+$("#copyAmt").addEventListener("click", () => {
+  const txt = (cartTotal() / 100).toFixed(2).replace(".", ",");
+  try { navigator.clipboard.writeText(txt).then(() => toast("Montant copié : " + txt + " €"), () => fallbackCopy(txt)); } catch { fallbackCopy(txt); }
+});
+/* offline queue: every sale goes to the outbox first, then is sent; a sale stays here until the store confirms it */
+function saveOutbox() { ls.set("caisse.outbox", S.outbox); }
+function withTimeout(p, ms) { return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ code: "timeout" }), ms))]); }
+async function flush() {
+  if (S.flushing || !S.db || !S.outbox.length) { renderSync(); return; }
+  S.flushing = true;
+  try {
+    while (S.outbox.length) {
+      const item = S.outbox[0];
+      try {
+        await withTimeout(S.db.collection(item.col || "tickets").doc(item.id).set(item.doc), 12000);
+        S.outbox.shift(); saveOutbox(); S.offline = false;
+      } catch (e) {
+        if (e && e.code === "invalid_argument") { dbError(e, "vente refusée"); break; }
+        S.offline = true; break;
+      }
+    }
+  } finally { S.flushing = false; renderSync(); if (S.view === "tickets") renderTickets(); if (S.view === "bilan") renderBilan(); if (S.view === "retours") renderRetours(); }
+}
+setInterval(flush, 15000);
+window.addEventListener("online", () => { S.offline = false; flush(); });
+window.addEventListener("offline", () => { S.offline = true; renderSync(); });
+function allTickets() {
+  const have = new Set(S.tickets.map(t => t.id));
+  return S.tickets.concat(S.outbox.filter(o => !o.col && o.doc.day === S.day && !have.has(o.id)).map(o => ({ id: o.id, ...o.doc, waiting: true })));
+}
+$("#confirmPay").addEventListener("click", async () => {
+  if (!S.db || !S.cart.length || !S.pay) return;
+  const btn = $("#confirmPay"); btn.disabled = true;
+  const full = cartTotal(), total = payTotal(), now = new Date(), g = parseEur($("#given").value);
+  const doc = {
+    day: dayOf(now), at: now.toISOString(), caisse: S.reg || "Caisse", vente: S.vente || "", seller: S.uid || null,
+    items: S.cart.map(l => { const i = { pid: l.pid || null, name: l.name, price: l.price, qty: l.qty }; if (lineDisc(l)) { i.disc = lineDisc(l); if (l.pct) i.pct = l.pct; } if (l.weight) { i.weight = l.weight; i.base = l.base; } return i; }),
+    total, pay: S.pay, status: "ok"
+  };
+  if (total < full) { doc.subtotal = full; doc.remise = full - total; }
+  if (S.pay === "especes" && !isNaN(g)) { doc.given = g; doc.change = g - total; }
+  const id = doc.day + "_" + rid();
+  const cart = S.cart; S.cart = []; saveCart(); renderCart(); renderCaisse(); closeSheets();
+  toast(S.pay === "especes" && doc.change > 0 ? "Vente enregistrée · rendre " + eur(doc.change) : "Vente enregistrée · " + eur(total), 3500);
+  S.outbox.push({ id, doc }); saveOutbox(); renderSync(); flush();
+});
+
+/* ---------- free amount ---------- */
+const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "00", "0", "⌫"];
+KEYS.forEach(k => { const b = el("button", null, k); b.onclick = () => { if (k === "⌫") S.free = S.free.slice(0, -1); else if (S.free.length < 7) S.free = (S.free + k).replace(/^0+/, ""); renderFree(); }; $("#keypad").append(b); });
+function renderFree() { const c = parseInt(S.free || "0", 10); $("#freeAmt").textContent = eur(c); $("#freeAdd").disabled = c <= 0; }
+$("#freeAdd").addEventListener("click", () => {
+  const c = parseInt(S.free || "0", 10); if (c <= 0) return;
+  S.cart.push({ key: rid(), pid: null, name: $("#freeName").value.trim() || "Divers", price: c, qty: 1 });
+  saveCart(); renderCart(); renderCaisse(); closeSheets(); toast("Ajouté : " + eur(c));
+});
+
+/* ---------- barcode scanner (Bluetooth scanner typing like a keyboard) ----------
+   Scale labels use EAN-13 "2PPPPPP€€€€€C": first 7 digits name the product, the next 5 the price in cents. */
+function eanOk(c) { if (!/^\d{13}$/.test(c)) return false; let s = 0; for (let i = 0; i < 12; i++) s += +c[i] * (i % 2 ? 3 : 1); return (10 - s % 10) % 10 === +c[12]; }
+const AZERTY = { "&": "1", "é": "2", "É": "2", "\"": "3", "«": "3", "»": "3", "“": "3", "”": "3", "'": "4", "’": "4", "‘": "4", "(": "5", "§": "6", "è": "7", "È": "7", "!": "8", "_": "8", "ç": "9", "Ç": "9", "à": "0", "À": "0" };
+let scanBuf = "", scanT = 0, scanIdle = 0;
+document.addEventListener("keydown", e => {
+  const tgt = e.target, typing = tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.tagName === "SELECT");
+  const now = Date.now();
+  if (now - scanT > 100) scanBuf = "";
+  scanT = now;
+  /* a scanner set to a US keyboard, on a French (AZERTY) iPhone, types & é " ' ( § è ! ç à instead of 1…0 */
+  const k = e.key && e.key.length === 1 ? (AZERTY[e.key] ?? e.key) : "";
+  if (k && /[0-9A-Za-z\-\.\/\+]/.test(k)) {
+    scanBuf += k;
+    /* some scanners send no Enter/Tab at the end: a burst of 6+ characters followed by silence is a scan too */
+    clearTimeout(scanIdle);
+    if (!typing) scanIdle = setTimeout(() => { if (scanBuf.length >= 6) { const c = scanBuf; scanBuf = ""; handleScan(c); } }, 300);
+    return;
+  }
+  if ((e.key === "Enter" || e.key === "Tab") && scanBuf.length >= 4) {
+    const code = scanBuf; scanBuf = ""; clearTimeout(scanIdle);
+    if (typing && !/^\d+$/.test(code)) return;            /* fast typing in a field, not a scan */
+    if (typing && tgt.id !== "scanQ") { tgt.value = tgt.value.replace(code, ""); }
+    /* stop the scanner's Enter from also pressing whatever button has focus (e.g. the photo tile) */
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (!typing && document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    handleScan(code);
+  }
+}, true);
+function handleScan(code) {
+  code = String(code).trim();
+  /* on an Android AZERTY keyboard the scanner's 6 key types "-" (e.g. 37-02-0131391 = 3760260131391) */
+  if (/^[\d-]+$/.test(code) && code.includes("-") && code.replace(/-/g, "6").length >= 12) code = code.replace(/-/g, "6");
+  if (/^\d{12}$/.test(code)) {                              /* scanner set to drop the check digit, or a UPC-A code */
+    if (eanOk("0" + code) && code[0] !== "2") code = "0" + code;
+    else { let t = 0; for (let i = 0; i < 12; i++) t += +code[i] * (i % 2 ? 3 : 1); code += (10 - t % 10) % 10; }
+  }
+  if (code.length === 13 && /^\d+$/.test(code) && !eanOk(code)) { toast("Code " + code + " mal lu, rescanne l'étiquette", 4000); return; }
+  const weighed = /^2\d{12}$/.test(code);
+  const key = weighed ? code.slice(0, 7) : code;
+  const p = S.products.find(x => x.ean === key);
+  if (S.view === "retours") {
+    if (!$("#sLot").hidden) { toast("Valide d'abord le numéro de lot", 3000); return; }
+    if (!p) { openScanPick(code, key); return; }
+    returnScanned(p, code); return;
+  }
+  if (!p) { openScanPick(code, key); return; }
+  addScanned(p, code);
+}
+function addScanned(p, code) {
+  const weighed = /^2\d{12}$/.test(code);
+  if (!weighed) { addToCart(p, 1); toast(p.name + " · " + eur(p.price) + " · total " + eur(cartTotal())); return; }
+  const price = parseInt(code.slice(7, 12), 10);
+  const weight = p.unit === "kg" && p.price ? Math.round(price * 1000 / p.price) : null;
+  S.cart.push({ key: rid(), pid: p.id, base: p.name, name: weight ? p.name + " · " + kgFmt(weight) : p.name, price, qty: 1, weight: weight || undefined });
+  saveCart(); renderCart(); renderCaisse();
+  if (navigator.vibrate) try { navigator.vibrate(30); } catch {}
+  toast(p.name + " · " + eur(price) + " · total " + eur(cartTotal()));
+}
+let scanPending = null;
+function openScanPick(code, key) {
+  scanPending = { code, key }; S.pickMode = null; $("#sScan h2").textContent = "Code-barres inconnu";
+  $("#scanInfo").textContent = "Le code " + code + " n'est relié à aucun produit. Choisis le produit une fois, la caisse s'en souviendra pour toutes les prochaines étiquettes.";
+  $("#scanQ").value = ""; S.scanCat = null; renderScanList(); openSheet("sScan");
+}
+function renderScanList() {
+  const nq = norm($("#scanQ").value), box = $("#scanList"); box.replaceChildren();
+  /* rayons as buttons: with a Bluetooth scanner paired, iOS hides the on-screen keyboard, so searching must work by taps */
+  const cw = $("#scanCats"); cw.replaceChildren();
+  categories().forEach(c => { const b = el("button", null, c); b.setAttribute("aria-pressed", String(S.scanCat === c)); b.onclick = () => { S.scanCat = S.scanCat === c ? null : c; $("#scanQ").value = ""; renderScanList(); }; cw.append(b); });
+  if (!nq && !S.scanCat) { box.append(el("p", "hint", "Choisis le rayon du produit ci-dessus.")); return; }
+  sortedProducts().filter(p => nq ? norm(p.name + " " + (p.cat || "")).includes(nq) : p.cat === S.scanCat).slice(0, 60).forEach(p => {
+    const r = el("button", "prow"), sw = el("span", "sw"), pn = el("span", "pn", p.name);
+    sw.style.background = `var(--t${(p.color || 0) % NCOLORS})`; if (p.cat) pn.append(el("small", null, p.cat));
+    r.append(sw, pn, el("span", "pp", eur(p.price) + (p.unit === "kg" ? "/kg" : "")));
+    r.onclick = () => {
+      const sp = scanPending, mode = S.pickMode; scanPending = null; S.pickMode = null; closeSheets();
+      if (mode === "retour") { returnManual(p); return; }
+      if (!sp) return; linkEan(p, sp.key);
+      if (S.view === "retours") returnScanned(p, sp.code); else addScanned(p, sp.code);
+    };
+    box.append(r);
+  });
+}
+$("#scanQ").addEventListener("input", () => { S.scanCat = null; renderScanList(); });
+async function linkEan(p, key) {
+  if (!key || p.ean === key || !S.db || S.readOnly) return;
+  p.ean = key;
+  try { await tracked(S.db.collection("products").doc(p.id).update({ ean: key })); } catch {}
+}
+
+/* ---------- sold by weight ---------- */
+const kgFmt = g => (g / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + " kg";
+function openWeight(queue, mode) { S.wq = queue.slice(); S.wMode = mode || null; nextWeight(); }
+function nextWeight() {
+  S.wp = S.wq.shift(); if (!S.wp) { closeSheets(); return; }
+  S.w = ""; $("#wTitle").textContent = S.wp.name; $("#wPerKg").textContent = eur(S.wp.price) + " le kilo · tape le poids en grammes";
+  renderWeight(); openSheet("sWeight");
+}
+function weightPrice() { return Math.round(S.wp.price * parseInt(S.w || "0", 10) / 1000); }
+function renderWeight() {
+  const g = parseInt(S.w || "0", 10);
+  $("#wGrams").textContent = g ? g.toLocaleString("fr-FR") + " g" : "0 g";
+  $("#wPrice").textContent = eur(weightPrice());
+  $("#wAdd").disabled = g <= 0; $("#wAdd").textContent = S.wMode === "retour" ? "Ajouter aux retours" : S.wq.length ? "Ajouter et peser le suivant" : "Ajouter au ticket";
+}
+["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "⌫"].forEach(k => { const b = el("button", null, k); b.onclick = () => {
+  if (k === "⌫") S.w = S.w.slice(0, -1); else if (k === "C") S.w = ""; else if (S.w.length < 5) S.w = (S.w + k).replace(/^0+/, "");
+  renderWeight(); }; $("#wKeypad").append(b); });
+$("#wAdd").addEventListener("click", () => {
+  const g = parseInt(S.w || "0", 10); if (!S.wp || g <= 0) return;
+  const price = weightPrice();
+  if (S.wMode === "retour") { const p = S.wp; S.wq = []; closeSheets(); withLot(p, lot => addReturn(p, lot, { price, weight: g })); return; }
+  S.cart.push({ key: rid(), pid: S.wp.id, base: S.wp.name, name: S.wp.name + " · " + kgFmt(g), price, qty: 1, weight: g });
+  saveCart(); renderCart(); renderCaisse(); toast("Ajouté : " + eur(price) + " · total " + eur(cartTotal()));
+  nextWeight();
+});
+
+/* ---------- photo recognition ---------- */
+function downscale(file, max = 1024) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(b => { URL.revokeObjectURL(url); b ? res(b) : rej(new Error("image")); }, "image/jpeg", 0.82);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("image")); };
+    img.src = url;
+  });
+}
+function renderFound(remark) {
+  const box = $("#phFound"); box.replaceChildren(); box.hidden = false;
+  $("#phStatus").hidden = !!S.found.length;
+  if (!S.found.length) $("#phStatus").replaceChildren(el("span", null, remark || "Je ne reconnais aucun produit du catalogue sur cette photo."));
+  S.found.forEach(f => {
+    const r = el("div", "line"), nm = el("div", "ln");
+    const sub = f.kind === "label"
+      ? [f.weight ? kgFmt(f.weight) : null, f.perKg ? eur(f.perKg) + "/kg" : null, "étiquette"].filter(Boolean).join(" · ")
+      : f.p.unit === "kg" ? eur(f.p.price) + "/kg · poids à saisir" : eur(f.p.price);
+    nm.append(el("div", null, f.name), el("div", "lp", sub + (f.low ? " · à vérifier" : "")));
+    const st = el("div", "stepper"), m = el("button", null, "−"), q = el("span", null, String(f.on ? f.qty : 0)), p = el("button", null, "+");
+    m.onclick = () => { if (f.qty > 1) f.qty--; else f.on = false; renderFound(); };
+    p.onclick = () => { if (!f.on) { f.on = true; f.qty = 1; } else f.qty++; renderFound(); };
+    st.append(m, q, p);
+    const priced = f.kind === "label" || f.p.unit !== "kg";
+    r.append(nm, st, el("div", "lt", f.on && priced ? eur(f.price * f.qty) : "–"));
+    box.append(r);
+  });
+  $("#phActions").hidden = false;
+  $("#phAdd").disabled = !S.found.some(f => f.on);
+}
+$("#phRetake").addEventListener("click", () => closeSheets());
+$("#phAdd").addEventListener("click", () => {
+  const sel = S.found.filter(f => f.on), weighed = [];
+  let n = 0;
+  sel.forEach(f => {
+    if (f.kind === "label") {
+      S.cart.push({ key: rid(), pid: f.p ? f.p.id : null, base: f.name, name: f.weight ? f.name + " · " + kgFmt(f.weight) : f.name, price: f.price, qty: f.qty, weight: f.weight || undefined });
+      n += f.qty;
+    } else if (f.p.unit === "kg") { for (let i = 0; i < f.qty; i++) weighed.push(f.p); }
+    else { addToCart(f.p, f.qty); n += f.qty; }
+  });
+  saveCart(); renderCart(); renderCaisse();
+  if (weighed.length) { openWeight(weighed); return; }
+  const undoCart = S.autoUndo; S.autoUndo = null;
+  const what = sel.length === 1 ? sel[0].name + (sel[0].weight ? " " + kgFmt(sel[0].weight) : "") + " · " + eur(sel[0].price * sel[0].qty) : n + " articles ajoutés";
+  closeSheets(); toast(what + " · total " + eur(cartTotal()), undoCart ? 5000 : 2600, undoCart ? () => { S.cart = undoCart; saveCart(); renderCart(); renderCaisse(); } : null);
+});
+
+/* ---------- tickets ---------- */
+function dayLabel(d) { const [y, m, dd] = d.split("-").map(Number); return new Date(y, m - 1, dd).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }); }
+function itemsText(t) { return (t.items || []).map(i => (i.qty > 1 ? i.qty + " × " : "") + i.name).join(", "); }
+/* filter by sale: null = this phone's sale on first view, "" = all */
+function vf() { if (S.vFilter === null) S.vFilter = S.vente || ""; return S.vFilter; }
+function visTickets() { const f = vf(); return allTickets().filter(t => !f || (f === "__none" ? !t.vente : t.vente === f)); }
+function renderVenteFilters() {
+  const f = vf(), names = knownVentes(); if (f && !names.includes(f)) names.unshift(f);
+  const hasBlank = allTickets().some(t => !t.vente);
+  $$("[data-vfilter]").forEach(sel => {
+    const opts = [["", "Toutes les ventes"], ...names.map(n => [n, n])];
+    if (hasBlank) opts.push(["__none", "Sans vente indiquée"]);
+    sel.replaceChildren(...opts.map(([v, l]) => { const o = el("option", null, l); o.value = v; return o; }));
+    sel.value = f;
+  });
+}
+$$("[data-vfilter]").forEach(sel => sel.addEventListener("change", e => { S.vFilter = e.target.value; renderAll(); }));
+async function renderTickets() {
+  renderVenteFilters();
+  $("#tkDayLbl").textContent = dayLabel(S.day);
+  $("#fAll").setAttribute("aria-pressed", String(!S.mineOnly)); $("#fMine").setAttribute("aria-pressed", String(S.mineOnly));
+  const list = $("#tkList"); list.replaceChildren();
+  const rows = visTickets().filter(t => !S.mineOnly || t.caisse === (S.reg || "Caisse")).sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+  if (!rows.length) { list.append(el("div", "empty", S.dbState === "loading" ? "Chargement…" : "Aucun ticket pour cette journée.")); return; }
+  rows.forEach(t => {
+    const c = el("div", "tk" + (t.status === "annule" ? " cancel" : ""));
+    const top = el("div", "tk-top");
+    top.append(el("span", "when", hhmm(t.at)), el("span", "who", t.caisse || "Caisse"), el("span", "pill " + t.pay, t.status === "annule" ? "Annulé" : t.waiting ? "En attente" : (PAY[t.pay] || t.pay)), el("span", "amt", eur(t.total)));
+    c.append(top, el("div", "items", itemsText(t)));
+    c.tabIndex = 0; c.setAttribute("role", "button"); c.setAttribute("aria-expanded", String(S.openTk === t.id));
+    const toggle = () => { S.openTk = S.openTk === t.id ? null : t.id; renderTickets(); };
+    c.addEventListener("click", e => { if (!e.target.closest(".tk-detail")) toggle(); });
+    c.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target === c) { e.preventDefault(); toggle(); } });
+    if (S.openTk === t.id) {
+      const d = el("div", "tk-detail");
+      (t.items || []).forEach(i => { const r = el("div", "bar-row"); r.style.gridTemplateColumns = "1fr auto"; r.append(el("span", null, i.qty + " × " + i.name + (i.disc ? " (remise " + (i.pct ? i.pct + " %" : eur(i.disc)) + ")" : "")), el("span", "bv", eur(i.price * i.qty - (i.disc || 0)))); d.append(r); });
+      if (t.remise) d.append(el("div", "hint", "Arrondi : " + eur(t.subtotal) + " ramené à " + eur(t.total)));
+      if (t.pay === "especes" && t.given != null) d.append(el("div", "hint", "Reçu " + eur(t.given) + " · rendu " + eur(t.change || 0)));
+      if (t.waiting) d.append(el("div", "hint", "Gardée sur ce téléphone, elle partira au retour du réseau."));
+      else if (t.status !== "annule" && !S.readOnly && S.db) {
+        const b = el("button", "btn danger", "Annuler ce ticket");
+        b.onclick = () => armed(b, "Confirmer l'annulation", async () => {
+          try { await tracked(S.db.collection("tickets").doc(t.id).update({ status: "annule", cancelledAt: new Date().toISOString(), cancelledBy: S.reg || "Caisse" })); toast("Ticket annulé"); }
+          catch (e) { dbError(e, "le ticket n'a pas été annulé"); }
+        });
+        d.append(b);
+      } else if (t.status === "annule") d.append(el("div", "hint", "Annulé" + (t.cancelledBy ? " par " + t.cancelledBy : "") + (t.cancelledAt ? " à " + hhmm(t.cancelledAt) : "")));
+      c.append(d);
+    }
+    list.append(c);
+  });
+}
+$("#fAll").addEventListener("click", () => { S.mineOnly = false; renderTickets(); });
+$("#fMine").addEventListener("click", () => { S.mineOnly = true; renderTickets(); });
+
+/* ---------- summary ---------- */
+function summary() {
+  const all = visTickets(), ok = all.filter(t => t.status !== "annule");
+  const ca = ok.reduce((s, t) => s + (t.total || 0), 0);
+  const pay = {}, reg = {}, sold = {}, ven = {};
+  ok.forEach(t => {
+    const vn = t.vente || "Sans vente indiquée"; ven[vn] = ven[vn] || { ca: 0, n: 0 }; ven[vn].ca += t.total; ven[vn].n++;
+    pay[t.pay] = (pay[t.pay] || 0) + t.total;
+    const r = t.caisse || "Caisse"; reg[r] = reg[r] || { ca: 0, n: 0 }; reg[r].ca += t.total; reg[r].n++;
+    (t.items || []).forEach(i => { const k = i.weight ? (i.base || i.name) + "|kg" : i.name + "|" + i.price; sold[k] = sold[k] || { name: i.weight ? (i.base || i.name) : i.name, price: i.price, qty: 0, g: 0, ca: 0 }; if (i.weight) sold[k].g += i.weight * i.qty; else sold[k].qty += i.qty; sold[k].ca += i.qty * i.price - (i.disc || 0); });
+  });
+  return { ok, ca, pay, reg, ven, remise: ok.reduce((a, t) => a + (t.remise || 0) + (t.items || []).reduce((b, i) => b + (i.disc || 0), 0), 0), sold: Object.values(sold).sort((a, b) => b.ca - a.ca), cancelled: all.length - ok.length };
+}
+function bars(box, entries, max) {
+  box.replaceChildren();
+  if (!entries.length) { box.append(el("p", "hint", "Rien encore.")); return; }
+  entries.forEach(([label, v, extra]) => {
+    const r = el("div", "bar-row"), b = el("div", "bar"), i = el("i"); i.style.width = (max ? Math.max(2, v / max * 100) : 0) + "%"; b.append(i);
+    r.append(el("span", "bn", label), b, el("span", "bv", eur(v) + (extra ? " · " + extra : ""))); box.append(r);
+  });
+}
+function renderBilan() {
+  renderVenteFilters();
+  const s = summary();
+  const venE = Object.entries(s.ven).map(([k, v]) => [k, v.ca, v.n + " t."]).sort((a, b) => b[1] - a[1]);
+  $("#bVenteCard").hidden = !!vf() || venE.length < 2;
+  bars($("#bVen"), venE, Math.max(0, ...venE.map(e => e[1])));
+  $("#kCa").textContent = eur(s.ca); $("#kN").textContent = String(s.ok.length); $("#kAvg").textContent = s.ok.length ? eur(Math.round(s.ca / s.ok.length)) : "–";
+  const payE = Object.entries(s.pay).map(([k, v]) => [PAY[k] || k, v]).sort((a, b) => b[1] - a[1]);
+  bars($("#bPay"), payE, Math.max(0, ...payE.map(e => e[1])));
+  $("#bCash").textContent = (s.pay.especes ? "Espèces encaissées : " + eur(s.pay.especes) + " (à retrouver dans les caisses, hors fond de caisse). " : "") + (s.cancelled ? s.cancelled + " ticket(s) annulé(s) non comptés. " : "") + (s.remise ? "Remises et arrondis accordés : " + eur(s.remise) + "." : "");
+  const regE = Object.entries(s.reg).map(([k, v]) => [k, v.ca, v.n + " t."]).sort((a, b) => b[1] - a[1]);
+  bars($("#bReg"), regE, Math.max(0, ...regE.map(e => e[1])));
+  const tb = $("#bSold"); tb.replaceChildren();
+  if (!s.sold.length) { const tr = el("tr"), td = el("td", "hint", "Aucune vente."); tr.append(td); tb.append(tr); }
+  s.sold.forEach(x => { const tr = el("tr"); tr.append(el("td", null, x.name), el("td", null, x.g ? kgFmt(x.g) : "× " + x.qty), el("td", null, eur(x.ca))); tb.append(tr); });
+}
+function bilanText() {
+  const s = summary(), L = ["Bilan du " + dayLabel(S.day) + (vf() ? " · " + (vf() === "__none" ? "sans vente indiquée" : vf()) : ""), "Chiffre : " + eur(s.ca) + " · " + s.ok.length + " tickets"];
+  Object.entries(s.pay).forEach(([k, v]) => L.push(" - " + (PAY[k] || k) + " : " + eur(v)));
+  if (!vf() && Object.keys(s.ven).length > 1) { L.push("Par vente :"); Object.entries(s.ven).forEach(([k, v]) => L.push(" - " + k + " : " + eur(v.ca) + " (" + v.n + " tickets)")); }
+  L.push("Par caisse :"); Object.entries(s.reg).forEach(([k, v]) => L.push(" - " + k + " : " + eur(v.ca) + " (" + v.n + " tickets)"));
+  L.push("Articles :"); s.sold.forEach(x => L.push(" - " + (x.g ? kgFmt(x.g) + " de " : x.qty + " × ") + x.name + " = " + eur(x.ca)));
+  if (s.cancelled) L.push(s.cancelled + " ticket(s) annulé(s)");
+  return L.join("\n");
+}
+$("#copyBilan").addEventListener("click", () => {
+  const txt = bilanText();
+  try { navigator.clipboard.writeText(txt).then(() => toast("Bilan copié"), () => fallbackCopy(txt)); } catch { fallbackCopy(txt); }
+});
+function fallbackCopy(txt) { const t = el("textarea"); t.value = txt; t.style.cssText = "position:fixed;opacity:0"; document.body.append(t); t.select(); try { document.execCommand("copy"); toast("Copié"); } catch { toast("Copie impossible sur cet appareil"); } t.remove(); }
+$("#dlCsv").addEventListener("click", async () => {
+  const q = v => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+  const rows = [["date", "heure", "vente", "caisse", "paiement", "statut", "article", "quantite", "prix_unitaire", "total_ligne", "total_ticket", "ticket"].join(";")];
+  visTickets().slice().sort((a, b) => (a.at || "").localeCompare(b.at || "")).forEach(t => (t.items || []).forEach(i => rows.push(
+    [t.day, hhmm(t.at), q(t.vente), q(t.caisse), PAY[t.pay] || t.pay, t.status, q(i.name), i.qty, (i.price / 100).toFixed(2).replace(".", ","), (i.price * i.qty / 100).toFixed(2).replace(".", ","), (t.total / 100).toFixed(2).replace(".", ","), t.id].join(";"))));
+  try { await S.downloads.save({ filename: "ventes-" + S.day + ".csv", data: "﻿" + rows.join("\n") }); }
+  catch (e) { if (e && e.code !== "declined") toast("Téléchargement impossible ici"); }
+});
+$("#bilanDay").addEventListener("change", e => { const v = e.target.value; if (v && v !== S.day) { S.day = v; subscribeTickets(); renderAll(); } });
+
+/* ---------- returns: each scanned article is one doc in "retours", grouped product → lot on the day's sheet ---------- */
+function allRetours() {
+  const have = new Set(S.retours.map(r => r.id));
+  return S.retours.concat(S.outbox.filter(o => o.col === "retours" && o.doc.day === S.rtDay && !have.has(o.id)).map(o => ({ id: o.id, ...o.doc, waiting: true })));
+}
+/* a finished sheet ("Terminer les retours") is a doc in retoursFeuilles listing its return ids; the open sheet is everything else of the day */
+function closedIds() { const set = new Set(); S.rtSheets.forEach(f => (f.ids || []).forEach(i => set.add(i))); return set; }
+function openRetours() { const c = closedIds(); return allRetours().filter(r => !c.has(r.id)); }
+/* the lot in use for a product: the one set on this phone, else the lot of its latest return on the sheet */
+function curLot(pid) {
+  if (S.rtLots[pid]) return S.rtLots[pid];
+  const last = openRetours().filter(r => r.pid === pid).sort((a, b) => (b.at || "").localeCompare(a.at || ""))[0];
+  return last ? last.lot : "";
+}
+function setLot(pid, lot) { S.rtLots[pid] = lot; ls.set("caisse.rtLots", S.rtLots); }
+let lotCb = null;
+function openLot(p, cb, changing) {
+  lotCb = lot => { setLot(p.id, lot); if (cb) cb(lot); renderRetours(); };
+  $("#lotTitle").textContent = "Lot · " + p.name;
+  $("#lotInfo").textContent = changing ? "Nouveau lot pour ce produit. Les articles suivants iront dans ce lot." : "Premier article de ce produit : note son numéro de lot. Les suivants iront dans le même lot.";
+  $("#lotVal").value = changing ? "" : (curLot(p.id) || "");
+  const rec = [...new Set(allRetours().map(r => r.lot).filter(Boolean))].slice(-6).reverse(), box = $("#lotRecent"); box.replaceChildren();
+  rec.forEach(l => { const b = el("button", null, l); b.type = "button"; b.onclick = () => { $("#lotVal").value = l; renderLotOk(); }; box.append(b); });
+  renderLotOk(); openSheet("sLot");
+}
+function withLot(p, cb) { const l = curLot(p.id); if (l) cb(l); else openLot(p, cb); }
+function renderLotOk() { $("#lotOk").disabled = !$("#lotVal").value.trim(); }
+["1", "2", "3", "4", "5", "6", "7", "8", "9", "-", "0", "⌫"].forEach(k => { const b = el("button", null, k); b.type = "button"; b.onclick = () => {
+  const i = $("#lotVal"); i.value = k === "⌫" ? i.value.slice(0, -1) : (i.value + k).slice(0, 20); renderLotOk(); }; $("#lotKeys").append(b); });
+$("#lotKeys").addEventListener("pointerdown", e => e.preventDefault());
+$("#lotVal").addEventListener("input", renderLotOk);
+$("#lotVal").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#lotOk").click(); } });
+$("#lotOk").addEventListener("click", () => { const l = $("#lotVal").value.trim().toUpperCase(); if (!l) return; const cb = lotCb; lotCb = null; $("#sLot").hidden = true; if (cb) cb(l); });
+
+function returnScanned(p, code) {
+  const weighed = /^2\d{12}$/.test(code);
+  const price = weighed ? parseInt(code.slice(7, 12), 10) : p.price;
+  const weight = weighed && p.unit === "kg" && p.price ? Math.round(price * 1000 / p.price) : null;
+  withLot(p, lot => addReturn(p, lot, { price, weight, code }));
+}
+function returnManual(p) {
+  if (p.unit === "kg") { openWeight([p], "retour"); return; }
+  withLot(p, lot => addReturn(p, lot, { price: p.price }));
+}
+function addReturn(p, lot, { price, weight, code }) {
+  if (!S.db || S.readOnly) { toast("Retour non enregistré : cette caisse ne peut pas écrire.", 4000); return; }
+  const now = new Date(), doc = { day: S.rtDay, at: now.toISOString(), caisse: S.reg || "Caisse", vente: S.vente || "", seller: S.uid || null, pid: p.id, name: p.name, lot, price, qty: 1, client: S.rtClient || "" };
+  if (weight) doc.weight = weight; if (code) doc.code = code;
+  const id = S.rtDay + "_" + rid();
+  S.outbox.push({ id, col: "retours", doc }); saveOutbox(); flush(); renderRetours();
+  if (navigator.vibrate) try { navigator.vibrate(30); } catch {}
+  const n = openRetours().filter(r => r.pid === p.id && r.lot === lot).length;
+  toast(p.name + " · lot " + lot + " · " + n + (n > 1 ? " articles" : " article") + (weight ? " · " + kgFmt(weight) : "") + " · " + eur(price), 3500, () => removeReturn({ id, waiting: true }));
+}
+async function removeReturn(r) {
+  const i = S.outbox.findIndex(o => o.id === r.id);
+  if (i >= 0) { S.outbox.splice(i, 1); saveOutbox(); }
+  S.retours = S.retours.filter(x => x.id !== r.id); renderRetours();
+  if (!r.waiting || i < 0) { try { await tracked(S.db.collection("retours").doc(r.id).delete()); } catch (e) { dbError(e, "l'article n'a pas été retiré"); } }
+}
+function rtGroups(list = openRetours()) {
+  const prods = new Map();
+  list.forEach(r => {
+    const k = r.pid || r.name; if (!prods.has(k)) prods.set(k, { pid: r.pid, name: r.name, lots: new Map(), n: 0, g: 0, ca: 0 });
+    const P = prods.get(k); if (!P.lots.has(r.lot)) P.lots.set(r.lot, { lot: r.lot, items: [], n: 0, g: 0, ca: 0 });
+    const L = P.lots.get(r.lot); L.items.push(r);
+    [L, P].forEach(x => { x.n += r.qty || 1; x.g += r.weight || 0; x.ca += r.price * (r.qty || 1); });
+  });
+  return [...prods.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+}
+function rtCells(row, label, x) { const a = el("span", null, label); a.append(el("small", null, qtyTxt(x))); row.append(a, el("span", "bv", eur(x.ca))); }
+const qtyTxt = x => x.n + (x.n > 1 ? " art." : " art.") + (x.g ? " · " + kgFmt(x.g) : "");
+function renderRetours() {
+  if (S.view !== "retours") return;
+  if ($("#rtDay").value !== S.rtDay) $("#rtDay").value = S.rtDay;
+  renderClient();
+  const list = $("#rtList"); list.replaceChildren();
+  const groups = rtGroups();
+  if (!groups.length) list.append(el("div", "empty", S.dbState === "loading" ? "Chargement…" : S.rtSheets.length ? "Nouvelle feuille vide. Scanne une étiquette pour commencer de nouveaux retours." : "Aucun retour sur cette feuille. Scanne une étiquette pour commencer."));
+  let N = 0, G = 0, CA = 0;
+  groups.forEach(P => {
+    N += P.n; G += P.g; CA += P.ca;
+    const c = el("div", "card"), head = el("div", "rt-lot"), h = el("h3", null, P.name);
+    head.append(h);
+    const prod = S.products.find(x => x.id === P.pid);
+    if (prod && S.rtDay === today()) {
+      const ch = el("button", "btn", "Lot " + (curLot(prod.id) || "?") + " · changer"); ch.style.padding = "8px 12px";
+      ch.onclick = () => openLot(prod, null, true); head.append(ch);
+    }
+    c.append(head);
+    [...P.lots.values()].forEach(L => {
+      const key = P.name + "|" + L.lot, row = el("button", "rt-row");
+      rtCells(row, "Lot " + L.lot, L);
+      row.setAttribute("aria-expanded", String(S.rtOpen === key));
+      row.onclick = () => { S.rtOpen = S.rtOpen === key ? null : key; renderRetours(); };
+      c.append(row);
+      if (S.rtOpen === key) {
+        const box = el("div", "rt-items");
+        L.items.slice().sort((a, b) => (a.at || "").localeCompare(b.at || "")).forEach(r => {
+          const it = el("div", "rt-it"), del = el("button", null, "Retirer");
+          del.onclick = () => { if (del.dataset.armed === "1") removeReturn(r); else { del.dataset.armed = "1"; del.classList.add("armed"); del.textContent = "Confirmer"; setTimeout(() => { del.dataset.armed = ""; del.classList.remove("armed"); del.textContent = "Retirer"; }, 3000); } };
+          it.append(el("span", null, hhmm(r.at) + (r.weight ? " · " + kgFmt(r.weight) : "") + (r.waiting ? " · en attente" : "")), el("span", "bv", eur(r.price)), S.readOnly ? el("span") : del);
+          box.append(it);
+        });
+        c.append(box);
+      }
+    });
+    if (P.lots.size > 1) { const sub = el("div", "rt-row sub"); rtCells(sub, "Total produit", P); c.append(sub); }
+    list.append(c);
+  });
+  $("#rtTot").textContent = eur(CA); $("#rtN").textContent = String(N); $("#rtKg").textContent = G ? kgFmt(G) : "–";
+  $("#rtManual").disabled = S.readOnly || !S.db;
+  $("#rtFinish").disabled = S.readOnly || !S.db || !N;
+  renderRtSheets();
+}
+const fileSlug = s => norm(s).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+function rtTitle(client, day, extra) { return "Retours" + (client ? " · " + client : "") + " · " + dayLabel(day) + (extra ? " (" + extra + ")" : ""); }
+function rtFile(client, day, extra) { return ["retours", fileSlug(client), day, extra].filter(Boolean).join("_") + ".xlsx"; }
+function retoursText(list = openRetours(), title = rtTitle(S.rtClient, S.rtDay)) {
+  const L = [title]; let N = 0, G = 0, CA = 0;
+  rtGroups(list).forEach(P => {
+    N += P.n; G += P.g; CA += P.ca; L.push("", P.name);
+    P.lots.forEach(x => L.push(" - Lot " + x.lot + " : " + qtyTxt(x) + " = " + eur(x.ca)));
+    if (P.lots.size > 1) L.push("   Total : " + qtyTxt(P) + " = " + eur(P.ca));
+  });
+  L.push("", "TOTAL : " + N + " articles" + (G ? " · " + kgFmt(G) : "") + " = " + eur(CA));
+  return L.join("\n");
+}
+$("#rtCopy").addEventListener("click", () => copyText(retoursText(), "Feuille copiée"));
+$("#rtCsv").addEventListener("click", () => retoursXlsx(openRetours(), rtFile(S.rtClient, S.rtDay), rtTitle(S.rtClient, S.rtDay)));
+/* minimal .xlsx writer (stored zip, inline strings): sheets = [{name, cols: [widths], rows: [[cell]]}], cell = string | number | null */
+function xlsxBlob(sheets) {
+  const enc = new TextEncoder(), esc = v => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const colL = i => { let s = ""; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+  const sheetXml = sh => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    (sh.cols ? "<cols>" + sh.cols.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("") + "</cols>" : "") + "<sheetData>" +
+    sh.rows.map((r, ri) => `<row r="${ri + 1}">` + r.map((v, ci) => v == null || v === "" ? "" : typeof v === "number"
+      ? `<c r="${colL(ci)}${ri + 1}"${sh.bold && sh.bold.includes(ri) ? ' s="1"' : ""}><v>${v}</v></c>`
+      : `<c r="${colL(ci)}${ri + 1}" t="inlineStr"${sh.bold && sh.bold.includes(ri) ? ' s="1"' : ""}><is><t xml:space="preserve">${esc(v)}</t></is></c>`).join("") + "</row>").join("") + "</sheetData></worksheet>";
+  const files = [
+    ["[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("") + "</Types>"],
+    ["_rels/.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+    ["xl/workbook.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' +
+      sheets.map((s, i) => `<sheet name="${esc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("") + "</sheets></workbook>"],
+    ["xl/_rels/workbook.xml.rels", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("") +
+      `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ["xl/styles.xml", '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>'],
+    ...sheets.map((s, i) => [`xl/worksheets/sheet${i + 1}.xml`, sheetXml(s)])
+  ];
+  const crcT = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; crcT[n] = c >>> 0; }
+  const crc = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = crcT[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const parts = [], cen = []; let off = 0;
+  files.forEach(([name, txt]) => {
+    const nb = enc.encode(name), db = enc.encode(txt), c = crc(db);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint32(14, c, true); h.setUint32(18, db.length, true); h.setUint32(22, db.length, true); h.setUint16(26, nb.length, true);
+    const ce = new DataView(new ArrayBuffer(46));
+    ce.setUint32(0, 0x02014b50, true); ce.setUint16(4, 20, true); ce.setUint16(6, 20, true); ce.setUint16(8, 0x0800, true); ce.setUint32(16, c, true); ce.setUint32(20, db.length, true); ce.setUint32(24, db.length, true); ce.setUint16(28, nb.length, true); ce.setUint32(42, off, true);
+    parts.push(new Uint8Array(h.buffer), nb, db); cen.push(new Uint8Array(ce.buffer), nb);
+    off += 30 + nb.length + db.length;
+  });
+  const cenLen = cen.reduce((a, b) => a + b.length, 0), end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cenLen, true); end.setUint32(16, off, true);
+  return new Blob([...parts, ...cen, new Uint8Array(end.buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+async function retoursXlsx(list, filename, title) {
+  const kg = g => g ? Math.round(g) / 1000 : null, e2 = c => Math.round(c) / 100;
+  const sorted = list.slice().sort((a, b) => a.name.localeCompare(b.name, "fr") || String(a.lot).localeCompare(String(b.lot)) || (a.at || "").localeCompare(b.at || ""));
+  const detail = [["Date", "Heure", "Produit", "Lot", "Poids (kg)", "Prix (€)", "Code-barres", "Caisse"]];
+  sorted.forEach(r => detail.push([r.day, hhmm(r.at), r.name, String(r.lot), kg(r.weight), e2(r.price), r.code || "", r.caisse || ""]));
+  const tot = [[title], [], ["Produit", "Lot", "Articles", "Poids (kg)", "Montant (€)"]], bold = [0, 2];
+  let N = 0, G = 0, CA = 0;
+  rtGroups(list).forEach(P => {
+    N += P.n; G += P.g; CA += P.ca;
+    P.lots.forEach(L => tot.push([P.name, String(L.lot), L.n, kg(L.g), e2(L.ca)]));
+    if (P.lots.size > 1) { bold.push(tot.length); tot.push(["Total " + P.name, "", P.n, kg(P.g), e2(P.ca)]); }
+  });
+  tot.push([]); bold.push(tot.length); tot.push(["TOTAL GÉNÉRAL", "", N, kg(G), e2(CA)]);
+  const blob = xlsxBlob([{ name: "Totaux", rows: tot, bold, cols: [34, 12, 10, 12, 14] }, { name: "Détail", rows: detail, bold: [0], cols: [12, 8, 34, 12, 11, 10, 16, 12] }]);
+  try { await S.downloads.save({ filename, data: blob }); }
+  catch (e) { if (e && e.code !== "declined") toast("Téléchargement impossible ici"); }
+}
+function copyText(txt, msg) { try { navigator.clipboard.writeText(txt).then(() => toast(msg), () => fallbackCopy(txt)); } catch { fallbackCopy(txt); } }
+$("#rtFinish").addEventListener("click", e => {
+  const list = openRetours();
+  if (!list.length) { toast("Aucun retour à terminer sur cette feuille"); return; }
+  if (list.some(r => r.waiting)) { toast("Des retours attendent encore le réseau, réessaie dans un instant", 4000); flush(); return; }
+  armed(e.currentTarget, "Confirmer : terminer (" + list.length + " art.)", async () => {
+    const groups = rtGroups(list), lines = [];
+    groups.forEach(P => P.lots.forEach(L => lines.push({ name: P.name, lot: L.lot, n: L.n, g: L.g, ca: L.ca })));
+    const now = new Date(), doc = { day: S.rtDay, closedAt: now.toISOString(), client: S.rtClient || "", caisse: S.reg || "Caisse", vente: S.vente || "", seller: S.uid || null,
+      ids: list.map(r => r.id), lines, n: lines.reduce((a, x) => a + x.n, 0), g: lines.reduce((a, x) => a + x.g, 0), ca: lines.reduce((a, x) => a + x.ca, 0) };
+    try {
+      await tracked(S.db.collection("retoursFeuilles").doc(S.rtDay + "_" + rid()).set(doc));
+      S.rtLots = {}; ls.set("caisse.rtLots", S.rtLots); setClient("");
+      toast("Feuille de retours terminée · " + doc.n + " articles · " + eur(doc.ca), 4500);
+    } catch (err) { dbError(err, "la feuille n'a pas été terminée"); }
+    $("#rtFinish").textContent = "Terminer les retours";
+  });
+});
+function renderRtSheets() {
+  const box = $("#rtDone"); box.replaceChildren();
+  const sheets = S.rtSheets.slice().sort((a, b) => (b.closedAt || "").localeCompare(a.closedAt || ""));
+  $("#rtDoneWrap").hidden = !sheets.length;
+  const byId = new Map(allRetours().map(r => [r.id, r]));
+  sheets.forEach(f => {
+    const c = el("div", "card"), row = el("button", "rt-row");
+    rtCells(row, (f.client || "Sans client") + " · terminée à " + hhmm(f.closedAt), f); row.style.fontWeight = "700";
+    row.onclick = () => { S.rtSheetOpen = S.rtSheetOpen === f.id ? null : f.id; renderRtSheets(); };
+    c.append(row);
+    if (S.rtSheetOpen === f.id) {
+      (f.lines || []).forEach(x => { const r = el("div", "rt-row"); rtCells(r, x.name + " · lot " + x.lot, x); c.append(r); });
+      const items = (f.ids || []).map(i => byId.get(i)).filter(Boolean), title = rtTitle(f.client, f.day, "terminée à " + hhmm(f.closedAt));
+      const act = el("div", "row"), cp = el("button", "btn", "Copier"), dl = el("button", "btn", "Excel");
+      cp.onclick = () => copyText(retoursText(items, title), "Feuille copiée");
+      dl.onclick = () => retoursXlsx(items, rtFile(f.client, f.day, hhmm(f.closedAt).replace(":", "h")), title);
+      act.append(cp); if (S.downloads) act.append(dl); c.append(act);
+    }
+    box.append(c);
+  });
+}
+$("#rtManual").addEventListener("click", () => {
+  S.pickMode = "retour"; scanPending = null; $("#sScan h2").textContent = "Quel produit ?";
+  $("#scanInfo").textContent = "Pour un article sans étiquette. Choisis le rayon puis le produit.";
+  $("#scanQ").value = ""; S.scanCat = null; renderScanList(); openSheet("sScan");
+});
+function setClient(v) {
+  S.rtClient = v.trim(); ls.set("caisse.rtClient", S.rtClient);
+  if (S.rtClient && !S.rtClients.includes(S.rtClient)) { S.rtClients = [S.rtClient, ...S.rtClients].slice(0, 30); ls.set("caisse.rtClients", S.rtClients); }
+  savePrefs(); renderClient();
+}
+function renderClient() {
+  const i = $("#rtClient"); if (document.activeElement !== i && i.value.trim() !== S.rtClient) i.value = S.rtClient;
+  const names = [...new Set([...S.rtClients, ...S.rtSheets.map(f => f.client).filter(Boolean)])];
+  $("#rtClientList").replaceChildren(...names.map(n => { const o = el("option"); o.value = n; return o; }));
+  const box = $("#rtClientRecent"); box.replaceChildren();
+  names.filter(n => n !== S.rtClient).slice(0, 6).forEach(n => { const b = el("button", null, n); b.type = "button"; b.onclick = () => setClient(n); box.append(b); });
+}
+$("#rtClient").addEventListener("input", e => { S.rtClient = e.target.value.trim(); ls.set("caisse.rtClient", S.rtClient); });
+$("#rtClient").addEventListener("change", e => setClient(e.target.value));
+$("#rtClient").addEventListener("keydown", e => { if (e.key === "Enter") e.target.blur(); });
+document.querySelector('[data-vkb="rtClient"]').addEventListener("click", () => { if (document.querySelector('[data-vkb-for="rtClient"]').hidden) setClient($("#rtClient").value); });
+$("#rtDay").addEventListener("change", e => { const v = e.target.value; if (v && v !== S.rtDay) { S.rtDay = v; subscribeRetours(); renderRetours(); } });
+function subscribeRetours() {
+  if (!S.db) return;
+  if (S.unsubR) S.unsubR();
+  if (S.unsubF) S.unsubF();
+  S.retours = []; S.rtSheets = [];
+  S.unsubF = S.db.collection("retoursFeuilles").where("day", "==", S.rtDay).limit(200).onSnapshot(snap => {
+    S.rtSheets = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderRetours();
+  }, err => { if (err.code === "unavailable") setTimeout(subscribeRetours, 3000); });
+  S.unsubR = S.db.collection("retours").where("day", "==", S.rtDay).limit(1000).onSnapshot(snap => {
+    S.retours = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderRetours();
+  }, err => { if (err.code === "unavailable") setTimeout(subscribeRetours, 3000); else toast("Les retours n'ont pas pu se charger (" + (err.code || "erreur") + ")", 5000); });
+}
+
+/* ---------- product admin ---------- */
+function renderColors() {
+  const w = $("#pColors"); w.replaceChildren();
+  for (let i = 0; i < NCOLORS; i++) { const b = el("button"); b.style.background = `var(--t${i})`; b.setAttribute("aria-label", "Couleur " + (i + 1)); b.setAttribute("aria-pressed", String(S.pColor === i)); b.onclick = () => { S.pColor = i; renderColors(); }; w.append(b); }
+}
+function fillForm(p) {
+  S.editing = p ? p.id : null;
+  $("#pName").value = p ? p.name : ""; $("#pPrice").value = p ? (p.price / 100).toFixed(2).replace(".", ",") : "";
+  $("#pCat").value = p ? (p.cat || "") : ""; $("#pUnit").value = p && p.unit === "kg" ? "kg" : "u"; $("#pLook").value = p ? (p.look || "") : ""; $("#pEan").value = p ? (p.ean || "") : ""; S.pColor = p ? (p.color || 0) : S.pColor;
+  $("#pFormTitle").textContent = p ? "Modifier « " + p.name + " »" : "Ajouter un produit";
+  $("#pSave").textContent = p ? "Enregistrer" : "Ajouter"; $("#pCancel").hidden = !p; $("#pDel").hidden = !p;
+  $("#pDel").textContent = "Supprimer ce produit"; $("#pDel").dataset.armed = ""; $("#pDel").classList.remove("armed");
+  renderColors();
+}
+function renderProduits() {
+  const dl = $("#catList"); dl.replaceChildren(...categories().map(c => { const o = el("option"); o.value = c; return o; }));
+  const list = $("#pList"); list.replaceChildren();
+  if (!S.products.length) list.append(el("div", "empty", S.dbState === "loading" ? "Chargement…" : "Ton catalogue est vide. Ajoute ton premier article avec le formulaire ci-dessus."));
+  sortedProducts().forEach(p => {
+    const r = el("button", "prow"), sw = el("span", "sw"), pn = el("span", "pn", p.name);
+    sw.style.background = `var(--t${(p.color || 0) % NCOLORS})`;
+    if (p.cat || p.look || p.ean) pn.append(el("small", null, [p.cat, p.ean ? "code " + p.ean : "", p.look].filter(Boolean).join(" · ")));
+    r.append(sw, pn, el("span", "pp", eur(p.price) + (p.unit === "kg" ? "/kg" : "")));
+    r.onclick = () => { fillForm(p); $("#main").scrollTop = 0; $("#pName").focus(); };
+    list.append(r);
+  });
+  const ro = S.readOnly || S.dbState !== "ok";
+  ["#pSave", "#pDel"].forEach(s => $(s).disabled = ro);
+}
+$("#pCancel").addEventListener("click", () => fillForm(null));
+$("#pSave").addEventListener("click", async () => {
+  const name = $("#pName").value.trim(), price = parseEur($("#pPrice").value);
+  if (!name) { toast("Donne un nom au produit"); $("#pName").focus(); return; }
+  if (isNaN(price) || price < 0) { toast("Prix invalide, par exemple 6,50"); $("#pPrice").focus(); return; }
+  const data = { name, price, unit: $("#pUnit").value === "kg" ? "kg" : "u", cat: $("#pCat").value.trim(), look: $("#pLook").value.trim(), ean: $("#pEan").value.replace(/\D/g, ""), color: S.pColor, updatedAt: new Date().toISOString() };
+  const id = S.editing || rid(), wasEdit = !!S.editing;
+  fillForm(null);
+  try { await tracked(S.db.collection("products").doc(id).set(data)); toast(wasEdit ? "Produit modifié" : "Produit ajouté"); }
+  catch (e) { dbError(e, "le produit n'a pas été enregistré"); }
+});
+$("#pDel").addEventListener("click", e => armed(e.currentTarget, "Confirmer la suppression", async () => {
+  const id = S.editing; fillForm(null); if (!id) return;
+  try { await tracked(S.db.collection("products").doc(id).delete()); toast("Produit supprimé"); }
+  catch (err) { dbError(err, "le produit n'a pas été supprimé"); }
+}));
+
+/* ---------- data ---------- */
+function renderAll() {
+  renderReg(); renderSync(); renderCart();
+  if (S.view === "caisse") renderCaisse();
+  if (S.view === "tickets") renderTickets();
+  if (S.view === "bilan") renderBilan();
+  if (S.view === "produits") renderProduits();
+  if (S.view === "retours") renderRetours();
+}
+function subscribeTickets() {
+  if (!S.db) return;
+  if (S.unsubT) S.unsubT();
+  S.tickets = [];
+  S.unsubT = S.db.collection("tickets").where("day", "==", S.day).limit(1000).onSnapshot(snap => {
+    S.tickets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (S.view === "tickets") renderTickets(); if (S.view === "bilan") renderBilan();
+  }, err => { if (err.code === "revoked") { S.dbState = "off"; renderSync(); } else if (err.code === "unavailable") setTimeout(subscribeTickets, 3000); });
+}
+function subscribeProducts() {
+  S.db.collection("products").limit(500).onSnapshot(snap => {
+    S.dbState = "ok";
+    S.products = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p && typeof p.name === "string");
+    if (!snap.metadata.fromCache) ls.set("caisse.products", S.products);
+    renderAll();
+  }, err => { if (err.code === "unavailable") setTimeout(subscribeProducts, 3000); else { S.dbState = "off"; renderAll(); } });
+}
+
+/* keep the screen awake while selling */
+let wake = null;
+async function keepAwake() { try { if (!wake && navigator.wakeLock && document.visibilityState === "visible") { wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release", () => wake = null); } } catch {} }
+document.addEventListener("pointerdown", keepAwake, { passive: true });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") keepAwake(); });
+
+/* midnight rollover for the "today" views */
+setInterval(() => { const t = today(); if (S.lastToday && S.lastToday !== t && S.day === S.lastToday) { S.day = t; subscribeTickets(); renderAll(); } if (S.lastToday && S.lastToday !== t && S.rtDay === S.lastToday) { S.rtDay = t; subscribeRetours(); renderAll(); } S.lastToday = t; }, 60000);
+S.lastToday = today();
+
+/* ---------- boot ---------- */
+$("#bilanDay").value = S.day; renderColors(); renderAll();
+/* name + sale are kept on the viewer's account (private db subtree), with local storage as a fallback */
+S.venteDay = ls.get("caisse.venteDay", "");
+{ const cached = ls.get("caisse.products", []); if (Array.isArray(cached) && cached.length) S.products = cached; }
+/* till name, sale and clients stay on this phone */
+function prefsRef() { return { get: async () => ({ exists: !!ST.prefs, data: () => ST.prefs }), set: async d => { ST.prefs = d; persist(); } }; }
+async function loadPrefs() {
+  const r = prefsRef(); if (!r) return;
+  try {
+    const snap = await r.get(); if (!snap.exists) return;
+    const d = snap.data() || {};
+    if (typeof d.reg === "string" && d.reg) { S.reg = d.reg; ls.set("caisse.nom", d.reg); }
+    if (typeof d.vente === "string") { S.vente = d.vente; ls.set("caisse.vente", d.vente); }
+    if (typeof d.venteDay === "string") { S.venteDay = d.venteDay; ls.set("caisse.venteDay", d.venteDay); }
+    if (typeof d.rtClient === "string") { S.rtClient = d.rtClient; ls.set("caisse.rtClient", d.rtClient); }
+    if (Array.isArray(d.rtClients)) { S.rtClients = d.rtClients.filter(x => typeof x === "string").slice(0, 30); ls.set("caisse.rtClients", S.rtClients); }
+    if (Array.isArray(d.venteHist)) { S.venteHist = d.venteHist.filter(x => typeof x === "string").slice(0, 20); ls.set("caisse.ventes", S.venteHist); }
+  } catch {}
+}
+async function savePrefs() {
+  const r = prefsRef(); if (!r) return;
+  try { await r.set({ reg: S.reg, vente: S.vente, venteDay: S.venteDay, venteHist: S.venteHist, rtClient: S.rtClient || "", rtClients: S.rtClients || [] }); } catch {}
+}
+/* ask which sale this phone is at, once per day */
+function askIfNeeded() { if (!S.reg || S.venteDay !== today()) openRegSheet(); }
+
+/* ---------- local store: everything lives on this phone (IndexedDB), synced to Google Sheets when there is a network ---------- */
+var ST = { recs: {}, lastSrv: 0, url: "", code: "", device: "", lastSync: "", lastErr: "", seeded: false, prefs: null };
+var syncing = false, syncT = 0;
+const idb = {
+  open() { return new Promise((res, rej) => { try { const r = indexedDB.open("caisse-du-stand", 1); r.onupgradeneeded = () => r.result.createObjectStore("kv"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }); },
+  async get(k) { const d = await this.open(); return new Promise((res, rej) => { const q = d.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); },
+  async set(k, v) { const d = await this.open(); return new Promise((res, rej) => { const tx = d.transaction("kv", "readwrite"); tx.objectStore("kv").put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+};
+let persistT = 0;
+function persist() {
+  clearTimeout(persistT);
+  persistT = setTimeout(async () => {
+    try { await idb.set("state", ST); } catch { try { localStorage.setItem("caisse.state", JSON.stringify(ST)); } catch {} }
+  }, 300);
+}
+async function loadStore() {
+  let st = null;
+  try { st = await idb.get("state"); } catch {}
+  if (!st) { try { st = JSON.parse(localStorage.getItem("caisse.state") || "null"); } catch {} }
+  if (st && typeof st === "object") Object.assign(ST, st);
+  if (!ST.device) ST.device = "tel-" + rid();
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch {}
+}
+const K = (col, id) => col + "|" + id;
+const listeners = new Set();
+function notify(cols) { listeners.forEach(l => { if (!cols || cols.has(l.col)) l.run(); }); }
+function putRec(col, id, data, deleted) {
+  ST.recs[K(col, id)] = { col, id, data: deleted ? null : data, updatedAt: Date.now(), deleted: !!deleted, dirty: true };
+  persist(); notify(new Set([col])); scheduleSync(1500);
+}
+const OPS = { "==": (a, b) => a === b, ">=": (a, b) => a >= b, "<=": (a, b) => a <= b, ">": (a, b) => a > b, "<": (a, b) => a < b, "!=": (a, b) => a !== b };
+function rowsOf(col, where) {
+  const out = [];
+  for (const r of Object.values(ST.recs)) {
+    if (r.col !== col || r.deleted || !r.data) continue;
+    if (where.every(([f, op, v]) => (OPS[op] || (() => true))(r.data[f], v))) out.push(r);
+  }
+  return out.sort((a, b) => a.id < b.id ? -1 : 1);
+}
+function snapOf(rows) { return { metadata: { fromCache: false }, docs: rows.map(r => ({ id: r.id, data: () => r.data })) }; }
+function query(col, where) {
+  return {
+    where: (f, op, v) => query(col, where.concat([[f, op, v]])),
+    limit: () => query(col, where),
+    orderBy: () => query(col, where),
+    get: async () => snapOf(rowsOf(col, where)),
+    onSnapshot(next) { const l = { col, run: () => next(snapOf(rowsOf(col, where))) }; listeners.add(l); setTimeout(l.run, 0); return () => listeners.delete(l); },
+    doc: id => ({
+      set: async data => putRec(col, id, JSON.parse(JSON.stringify(data))),
+      update: async data => { const cur = ST.recs[K(col, id)]; putRec(col, id, Object.assign({}, cur && cur.data, JSON.parse(JSON.stringify(data)))); },
+      delete: async () => putRec(col, id, null, true)
+    })
+  };
+}
+const localDb = { collection: c => query(c, []) };
+
+/* first launch: the catalogue as it was in the Caisse du stand on claude.ai */
+const SEED = {"a-chipo-sechee-piece":{"cat":"À l'unité","color":4,"name":"Chipo séchée (pièce)","price":700,"unit":"u"},"a-merguez-sechee-piece":{"cat":"À l'unité","color":4,"name":"Merguez séchée (pièce)","price":700,"unit":"u"},"a-saucisse-seche-de-canard-piece":{"cat":"À l'unité","color":4,"name":"Saucisse sèche de canard (pièce)","price":700,"unit":"u"},"cana-aiguillettes-de-canard":{"cat":"Canard gras","color":3,"ean":"2600026","name":"Aiguillettes de canard","price":2500,"unit":"kg"},"cana-canard-sans-foie":{"cat":"Canard gras","color":3,"name":"Canard sans foie","price":550,"unit":"kg"},"cana-cote-de-canard":{"cat":"Canard gras","color":3,"ean":"2600106","name":"Côte de canard","price":2500,"unit":"kg"},"cana-cou-farci-au-foie-gras":{"cat":"Canard gras","color":3,"ean":"2600037","name":"Cou farci au foie gras","price":7000,"unit":"kg"},"cana-cuisse-de-canard-confite":{"cat":"Canard gras","color":3,"ean":"2600034","name":"Cuisse de canard confite","price":395,"unit":"u"},"cana-cuisse-de-canard-fraiche":{"cat":"Canard gras","color":3,"ean":"2600025","name":"Cuisse de canard fraîche","price":300,"unit":"u"},"cana-foie-gras-frais-deveine":{"cat":"Canard gras","color":3,"ean":"2600039","name":"Foie gras frais dénervé","price":5200,"unit":"kg"},"cana-foie-gras-frais":{"cat":"Canard gras","color":3,"ean":"2600029","name":"Foie gras frais","price":4700,"unit":"kg"},"cana-foie-gras-mi-cuit-boule":{"cat":"Canard gras","color":3,"ean":"2600028","name":"Foie gras mi-cuit boule","price":8900,"unit":"kg"},"cana-foie-gras-mi-cuit-tranche":{"cat":"Canard gras","color":3,"ean":"2600155","name":"Foie gras mi-cuit tranché","price":9900,"unit":"kg"},"cana-foie-gras-mi-cuit":{"cat":"Canard gras","color":3,"ean":"2600048","name":"Foie gras mi-cuit boudin","price":8900,"unit":"kg"},"cana-friton-de-canard":{"cat":"Canard gras","color":3,"ean":"2600014","name":"Friton de canard","price":1995,"unit":"kg"},"cana-gesiers-de-canard-confits":{"cat":"Canard gras","color":3,"ean":"2600036","name":"Gésiers de canard confits","price":2400,"unit":"kg"},"cana-magret-frais":{"cat":"Canard gras","color":3,"ean":"2600024","name":"Magret frais","price":2300,"unit":"kg"},"cana-manchons-de-canard-confits-x2":{"cat":"Canard gras","color":3,"ean":"2600035","name":"Manchons de canard confits (x2)","price":200,"unit":"u"},"cana-rillettes-de-canard":{"cat":"Canard gras","color":3,"ean":"2600132","name":"Rillettes de canard","price":1995,"unit":"kg"},"cana-steak-de-canard":{"cat":"Canard gras","color":3,"ean":"2600052","name":"Steak de canard","price":2500,"unit":"kg"},"char-andouilles":{"cat":"Charcuterie fraîche","color":2,"ean":"2600071","name":"Andouilles","price":970,"unit":"kg"},"char-boudin-a-la-viande":{"cat":"Charcuterie cuite","color":5,"ean":"2600064","name":"Boudin à la viande","price":980,"unit":"kg"},"char-carbonnade":{"cat":"Charcuterie fraîche","color":2,"ean":"2600089","name":"Carbonnade","price":1400,"unit":"kg"},"char-chair-a-saucisse":{"cat":"Charcuterie fraîche","color":2,"ean":"2600059","name":"Chair à saucisse","price":895,"unit":"kg"},"char-chipolatas-sechees":{"cat":"Charcuterie sèche","color":4,"name":"Chipolatas séchées","price":2500,"unit":"kg"},"char-chipolatas":{"cat":"Charcuterie fraîche","color":2,"ean":"2600092","name":"Chipolatas","price":1160,"unit":"kg"},"char-confit-de-cochon":{"cat":"Charcuterie cuite","color":5,"ean":"2600070","name":"Confit de cochon","price":1095,"unit":"kg"},"char-coppa":{"cat":"Charcuterie sèche","color":4,"name":"Coppa","price":2995,"unit":"kg"},"char-cotelettes-de-porc":{"cat":"Charcuterie fraîche","color":2,"ean":"2600076","name":"Côtelettes de porc","price":995,"unit":"kg"},"char-couenne":{"cat":"Charcuterie fraîche","color":2,"ean":"2600100","name":"Couenne","price":400,"unit":"u"},"char-filet-mignon":{"cat":"Charcuterie fraîche","color":2,"ean":"2600084","name":"Filet mignon","price":1800,"unit":"kg"},"char-galantine-de-volaille":{"cat":"Charcuterie cuite","color":5,"ean":"2600072","name":"Galantine de volaille","price":1550,"unit":"kg"},"char-jambon-blanc":{"cat":"Charcuterie cuite","color":5,"ean":"2600058","name":"Jambon blanc","price":1900,"unit":"kg"},"char-jambon-de-pays-en-tranche":{"cat":"Charcuterie sèche","color":4,"ean":"2600060","name":"Jambon de pays en tranche","price":2500,"unit":"kg"},"char-jambon-de-pays-entier-avec-os":{"cat":"Charcuterie sèche","color":4,"name":"Jambon de pays entier avec os","price":1000,"unit":"kg"},"char-jambon-de-pays-entier-desosse":{"cat":"Charcuterie sèche","color":4,"name":"Jambon de pays entier désossé","price":1450,"unit":"kg"},"char-jarret-de-porc":{"cat":"Charcuterie fraîche","color":2,"ean":"2600082","name":"Jarret de porc","price":600,"unit":"kg"},"char-joue-de-porc-confit":{"cat":"Charcuterie cuite","color":5,"ean":"2600147","name":"Joue de porc confit","price":2295,"unit":"kg"},"char-langue-de-porc-confit":{"cat":"Charcuterie cuite","color":5,"ean":"2600148","name":"Langue de porc confit","price":1695,"unit":"kg"},"char-magret-seche-entier":{"cat":"Charcuterie sèche","color":4,"ean":"2600030","name":"Magret séché entier","price":3995,"unit":"kg"},"char-magret-seche-pretranche":{"cat":"Charcuterie sèche","color":4,"ean":"2600031","name":"Magret séché prétranché","price":5300,"unit":"kg"},"char-pate-de-campagne":{"cat":"Charcuterie cuite","color":5,"ean":"2600066","name":"Pâté de campagne","price":1090,"unit":"kg"},"char-pate-de-canard":{"cat":"Charcuterie cuite","color":5,"name":"Pâté de canard","price":1630,"unit":"kg"},"char-pate-de-porc-au-foie-gras":{"cat":"Charcuterie cuite","color":5,"ean":"2600067","name":"Pâté de porc au foie gras","price":2000,"unit":"kg"},"char-pied-de-porc":{"cat":"Charcuterie fraîche","color":2,"ean":"2600080","name":"Pied de porc","price":130,"unit":"kg"},"char-poitrine-de-porc-tranchee":{"cat":"Charcuterie fraîche","color":2,"ean":"2600134","name":"Poitrine de porc tranchée","price":1200,"unit":"kg"},"char-preparation-type-merguez-sechees":{"cat":"Charcuterie sèche","color":4,"name":"Préparation type merguez séchées","price":2500,"unit":"kg"},"char-preparation-type-merguez":{"cat":"Charcuterie fraîche","color":2,"ean":"2600118","name":"Préparation type merguez","price":1160,"unit":"kg"},"char-quart-de-jambon-de-pays":{"cat":"Charcuterie sèche","color":4,"ean":"2600107","name":"Quart de jambon de pays","price":1950,"unit":"kg"},"char-roti-de-porc":{"cat":"Charcuterie fraîche","color":2,"ean":"2600077","name":"Rôti de porc","price":1095,"unit":"kg"},"char-saucisse-de-canard":{"cat":"Charcuterie fraîche","color":2,"ean":"2600062","name":"Saucisse de canard","price":1500,"unit":"kg"},"char-saucisse-de-porc-au-foie-gras":{"cat":"Charcuterie fraîche","color":2,"ean":"2600165","name":"Saucisse de porc au foie gras","price":1710,"unit":"kg"},"char-saucisse-pur-porc-fine":{"cat":"Charcuterie fraîche","color":2,"ean":"2600130","name":"Saucisse pur porc fine","price":1160,"unit":"kg"},"char-saucisse-pur-porc":{"cat":"Charcuterie fraîche","color":2,"ean":"2600061","name":"Saucisse pur porc","price":995,"unit":"kg"},"char-saucisse-seche-de-canard":{"cat":"Charcuterie sèche","color":4,"ean":"2600116","name":"Saucisse sèche de canard","price":2500,"unit":"kg"},"char-saucisse-seche-de-foie":{"cat":"Charcuterie sèche","color":4,"ean":"2600117","name":"Saucisse sèche de foie","price":2200,"unit":"kg"},"char-saucisse-seche-de-porc":{"cat":"Charcuterie sèche","color":4,"ean":"2600115","name":"Saucisse sèche de porc","price":2200,"unit":"kg"},"char-saucisson-de-canard":{"cat":"Charcuterie sèche","color":4,"ean":"2600090","name":"Saucisson de canard","price":2500,"unit":"kg"},"char-saucisson-de-porc":{"cat":"Charcuterie sèche","color":4,"ean":"2600063","name":"Saucisson de porc","price":2300,"unit":"kg"},"char-talon-de-jambon-de-pays":{"cat":"Charcuterie sèche","color":4,"ean":"2600057","name":"Talon de jambon de pays","price":1160,"unit":"kg"},"char-travers-de-porc":{"cat":"Charcuterie fraîche","color":2,"ean":"2600083","name":"Travers de porc","price":850,"unit":"kg"},"char-ventreche-plate-ou-roulee":{"cat":"Charcuterie sèche","color":4,"ean":"2600074","name":"Ventrèche (plate ou roulée)","price":1895,"unit":"kg"},"conf-cou-farci-400-g":{"cat":"Confits","color":1,"ean":"3760260131049","name":"Cou farci 400 g","price":2200,"unit":"u"},"conf-cuisses-confites-x2-590-g":{"cat":"Confits","color":1,"ean":"3760260131056","name":"Cuisses confites (x2) 590 g","price":995,"unit":"u"},"conf-cuisses-confites-x4-950-g":{"cat":"Confits","color":1,"ean":"3760260131063","name":"Cuisses confites (x4) 950 g","price":1895,"unit":"u"},"conf-gesiers-de-canard-confits-200-g":{"cat":"Confits","color":1,"ean":"3760260131100","name":"Gésiers de canard confits 200 g","price":550,"unit":"u"},"conf-gesiers-de-canard-confits-400-g":{"cat":"Confits","color":1,"ean":"3760260131117","name":"Gésiers de canard confits 400 g","price":995,"unit":"u"},"conf-magret-et-cuisse-confits-590-g":{"cat":"Confits","color":1,"ean":"3760260131087","name":"Magret et cuisse confits 590 g","price":1495,"unit":"u"},"conf-magrets-confits-x2-590-g":{"cat":"Confits","color":1,"ean":"3760260131070","name":"Magrets confits (x2) 590 g","price":1760,"unit":"u"},"conf-manchons-confits-750-g":{"cat":"Confits","color":1,"ean":"3760260131094","look":"","name":"Manchons confits 750 g","price":895,"unit":"u"},"entr-friton-de-canard-200-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131155","name":"Friton de canard 200 g","price":550,"unit":"u"},"entr-friton-de-porc-200-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131278","name":"Friton de porc 200 g","price":395,"unit":"u"},"entr-galantine-de-volaille-200-g":{"cat":"Entrées conserve","color":0,"name":"Galantine de volaille 200 g","price":395,"unit":"u"},"entr-galantine-de-volaille-400-g":{"cat":"Entrées conserve","color":0,"name":"Galantine de volaille 400 g","price":695,"unit":"u"},"entr-gesiers-de-volaille-confits-200-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131254","name":"Gésiers de volaille confits 200 g","price":395,"unit":"u"},"entr-gesiers-de-volaille-confits-400-g":{"cat":"Entrées conserve","color":0,"name":"Gésiers de volaille confits 400 g","price":695,"unit":"u"},"entr-jambonneau-de-canard-200-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131162","name":"Jambonneau de canard 200 g","price":550,"unit":"u"},"entr-jambonneau-de-canard-400-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131179","name":"Jambonneau de canard 400 g","price":995,"unit":"u"},"entr-jambonneau-de-porc-200-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131308","name":"Jambonneau de porc 200 g","price":395,"unit":"u"},"entr-jambonneau-de-porc-400-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131315","name":"Jambonneau de porc 400 g","price":695,"unit":"u"},"entr-pate-de-campagne-200-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131285","look":"","name":"Pâté de campagne 200 g","price":395,"unit":"u"},"entr-pate-de-campagne-400-g":{"cat":"Entrées conserve","color":0,"name":"Pâté de campagne 400 g","price":695,"unit":"u"},"entr-pate-de-canard-200-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131124","name":"Pâté de canard 200 g","price":460,"unit":"u"},"entr-pate-de-canard-400-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131131","name":"Pâté de canard 400 g","price":840,"unit":"u"},"entr-pate-de-canard-au-foie-gras-180-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131148","name":"Pâté de canard au foie gras 180 g","price":770,"unit":"u"},"entr-pate-de-foie-de-volaille-200-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131247","name":"Pâté de foie de volaille 200 g","price":395,"unit":"u"},"entr-pate-de-porc-au-foie-gras-180-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131322","name":"Pâté de porc au foie gras 180 g","price":770,"unit":"u"},"entr-rillettes-de-canard-200-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131186","name":"Rillettes de canard 200 g","price":550,"unit":"u"},"entr-rillettes-de-canard-400-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131193","name":"Rillettes de canard 400 g","price":995,"unit":"u"},"entr-rillettes-de-canard-au-foie-gras-180-g":{"cat":"Entrées conserve","color":0,"ean":"3760260131209","name":"Rillettes de canard au foie gras 180 g","price":770,"unit":"u"},"foie-foie-de-canard-entier-100-g":{"cat":"Foie gras conserve","color":3,"ean":"3760260131001","name":"Foie de canard entier 100 g","price":1200,"unit":"u"},"foie-foie-de-canard-entier-200-g":{"cat":"Foie gras conserve","color":3,"ean":"3760260131018","name":"Foie de canard entier 200 g","price":2100,"unit":"u"},"foie-foie-de-canard-entier-300-g":{"cat":"Foie gras conserve","color":3,"ean":"3760260131025","name":"Foie de canard entier 300 g","price":3000,"unit":"u"},"foie-foie-de-canard-entier-350-g":{"cat":"Foie gras conserve","color":3,"ean":"3760260130035","name":"Foie de canard entier 350 g","price":3500,"unit":"u"},"foie-foie-de-canard-entier-400-g":{"cat":"Foie gras conserve","color":3,"ean":"3760260131032","name":"Foie de canard entier 400 g","price":3900,"unit":"u"},"foie-foie-de-canard-entier-500-g":{"cat":"Foie gras conserve","color":3,"ean":"3760260130042","name":"Foie de canard entier 500 g","price":4800,"unit":"u"},"mwkjk42g5wewe":{"cat":"À l'unité","color":5,"ean":"3760260130004","look":"","name":"Graisse de Canard 300g","price":450,"unit":"u"},"mwkjybzyrqtf5":{"cat":"À l'unité","color":0,"ean":"9760260131094","look":"","name":"Manchons confits","price":895,"unit":"u"},"mwkpwnbq5k9sj":{"cat":"","color":5,"ean":"3760260131551","look":"","name":"Graisse 600g","price":700,"unit":"u"},"noel-chapon-eviscere-avec-abats":{"cat":"Noël","color":1,"name":"Chapon éviscéré avec abats","price":1395,"unit":"kg"},"noel-oie-evisceree-avec-abats":{"cat":"Noël","color":1,"name":"Oie éviscérée avec abats","price":1430,"unit":"kg"},"noel-roti-de-chapon-farci":{"cat":"Noël","color":1,"name":"Rôti de chapon farci","price":2995,"unit":"kg"},"noel-roti-de-magrets-fourre-au-foie-gras":{"cat":"Noël","color":1,"name":"Rôti de magrets fourré au foie gras","price":2995,"unit":"kg"},"plat-cassoulet-au-confit-1400-g":{"cat":"Plats cuisinés","color":2,"ean":"3760260131391","name":"Cassoulet au confit 1400 g","price":1900,"unit":"u"},"plat-cassoulet-au-confit-580-g":{"cat":"Plats cuisinés","color":2,"ean":"3760260131377","name":"Cassoulet au confit 580 g","price":960,"unit":"u"},"plat-cassoulet-au-confit-780-g":{"cat":"Plats cuisinés","color":2,"ean":"3760260131384","name":"Cassoulet au confit 780 g","price":1270,"unit":"u"},"plat-haricots-a-la-tomate-750-g":{"cat":"Plats cuisinés","color":2,"ean":"3760260131407","name":"Haricots à la tomate 750 g","price":730,"unit":"u"},"plat-lentilles-aux-jarrets-de-porc-1350-g":{"cat":"Plats cuisinés","color":2,"name":"Lentilles aux jarrets de porc 1350 g","price":1760,"unit":"u"},"plat-lentilles-aux-jarrets-de-porc-750-g":{"cat":"Plats cuisinés","color":2,"ean":"3760260131414","name":"Lentilles aux jarrets de porc 750 g","price":1170,"unit":"u"},"plat-lentilles-cuisinees-750-g":{"cat":"Plats cuisinés","color":2,"ean":"3760260131438","name":"Lentilles cuisinées 750 g","price":730,"unit":"u"},"plat-lentilles-saucisses-750-g":{"cat":"Plats cuisinés","color":2,"name":"Lentilles saucisses 750 g","price":920,"unit":"u"},"plat-magret-a-l-orange-450-g":{"cat":"Plats cuisinés","color":2,"name":"Magret à l'orange 450 g","price":1210,"unit":"u"},"plat-magret-fourre-au-foie-gras-550-g":{"cat":"Plats cuisinés","color":2,"ean":"3760260131520","name":"Magret fourré au foie gras 550 g","price":1870,"unit":"u"},"plat-pintade-farcie-au-foie-gras-700-g":{"cat":"Plats cuisinés","color":2,"ean":"3760260131537","name":"Pintade farcie au foie gras 700 g","price":1870,"unit":"u"},"vola-blanc-de-poulet":{"cat":"Volailles","color":0,"ean":"2600012","name":"Blanc de poulet","price":2090,"unit":"kg"},"vola-cane-evisceree-avec-abats":{"cat":"Volailles","color":0,"name":"Cane éviscérée avec abats","price":865,"unit":"kg"},"vola-cuisse-de-pintade":{"cat":"Volailles","color":0,"name":"Cuisse de pintade","price":1690,"unit":"kg"},"vola-cuisse-de-poulet":{"cat":"Volailles","color":0,"ean":"2600011","name":"Cuisse de poulet","price":1250,"unit":"kg"},"vola-pintade-evisceree-avec-abats":{"cat":"Volailles","color":0,"name":"Pintade éviscérée avec abats","price":1095,"unit":"kg"},"vola-poulet-eviscere-avec-abats":{"cat":"Volailles","color":0,"name":"Poulet éviscéré avec abats","price":795,"unit":"kg"},"vola-supreme-de-pintade":{"cat":"Volailles","color":0,"name":"Suprême de pintade","price":2090,"unit":"kg"}};
+function seedProducts() {
+  if (ST.seeded) return;
+  ST.seeded = true;
+  if (!Object.values(ST.recs).some(r => r.col === "products")) {
+    Object.entries(SEED).forEach(([id, d]) => { ST.recs[K("products", id)] = { col: "products", id, data: d, updatedAt: 1, deleted: false, dirty: false, seed: true }; });
+  }
+  persist();
+}
+
+/* ---------- sync with the Google Sheet (Apps Script web app) ---------- */
+function scheduleSync(ms) { clearTimeout(syncT); syncT = setTimeout(syncNow, ms); }
+function dirtyCount() { let n = 0; for (const r of Object.values(ST.recs)) if (r.dirty) n++; return n; }
+async function syncNow() {
+  if (syncing) return;
+  if (!ST.url) { renderSync(); return; }
+  if (navigator.onLine === false) { S.offline = true; renderSync(); return; }
+  syncing = true; renderSync();
+  const changed = new Set();
+  try {
+    /* 1. send what this phone changed */
+    const dirty = Object.values(ST.recs).filter(r => r.dirty);
+    for (let i = 0; i < dirty.length; i += 200) {
+      const chunk = dirty.slice(i, i + 200), sent = chunk.map(r => r.updatedAt);
+      const res = await fetchJson(ST.url, { method: "POST", body: JSON.stringify({ code: ST.code, device: ST.device, records: chunk.map(r => ({ key: K(r.col, r.id), col: r.col, id: r.id, updatedAt: r.updatedAt, deleted: r.deleted, data: r.data })) }) });
+      if (!res.ok) throw new Error(res.error || "refus");
+      chunk.forEach((r, j) => { if (ST.recs[K(r.col, r.id)] === r && r.updatedAt === sent[j]) { r.dirty = false; delete r.seed; } });
+      persist();
+    }
+    /* 2. bring back what the other phones sent */
+    const first = !ST.lastSrv;
+    const res = await fetchJson(ST.url + (ST.url.includes("?") ? "&" : "?") + "code=" + encodeURIComponent(ST.code) + "&since=" + ST.lastSrv, { method: "GET" });
+    if (!res.ok) throw new Error(res.error || "refus");
+    let gotProducts = false;
+    (res.records || []).forEach(x => {
+      if (x.col === "products") gotProducts = true;
+      const k = K(x.col, x.id), cur = ST.recs[k];
+      if (cur && cur.dirty && cur.updatedAt > x.updatedAt) return;
+      ST.recs[k] = { col: x.col, id: x.id, data: x.deleted ? null : x.data, updatedAt: Number(x.updatedAt) || 0, deleted: !!x.deleted, dirty: false };
+      changed.add(x.col);
+    });
+    if (typeof res.max === "number" && res.max > ST.lastSrv) ST.lastSrv = res.max;
+    /* an empty sheet: this phone sends the catalogue once */
+    if (first && !gotProducts) { let n = 0; Object.values(ST.recs).forEach(r => { if (r.col === "products" && r.seed) { r.dirty = true; n++; } }); if (n) scheduleSync(500); }
+    ST.lastSync = new Date().toISOString(); ST.lastErr = ""; S.offline = false;
+  } catch (e) {
+    ST.lastErr = String((e && e.message) || e || "erreur");
+    if (navigator.onLine === false || /fetch|network|Load failed|timeout/i.test(ST.lastErr)) S.offline = true;
+  } finally {
+    syncing = false; persist(); renderSync();
+    if (changed.size) notify(changed);
+  }
+}
+async function fetchJson(url, opts) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 25000);
+  try {
+    const r = await fetch(url, Object.assign({ redirect: "follow", signal: ctl.signal }, opts, opts.method === "POST" ? { headers: { "Content-Type": "text/plain;charset=utf-8" } } : {}));
+    const txt = await r.text();
+    try { return JSON.parse(txt); } catch { throw new Error("Réponse illisible : vérifie l'adresse du tableau"); }
+  } catch (e) { if (e && e.name === "AbortError") throw new Error("timeout"); throw e; }
+  finally { clearTimeout(t); }
+}
+setInterval(() => scheduleSync(0), 30000);
+window.addEventListener("online", () => { S.offline = false; scheduleSync(0); });
+window.addEventListener("offline", () => { S.offline = true; renderSync(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") scheduleSync(0); });
+
+const EXEC_RE = /^https:\/\/script\.google\.com\/(a\/[^/]+\/)?macros\/s\/[^/]+\/exec$/;
+function renderSyncSheet() {
+  const n = dirtyCount();
+  $("#syInfo").textContent = (ST.url ? (ST.lastSync ? "Dernière synchro : " + new Date(ST.lastSync).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Jamais synchronisé") : "Pas encore relié au tableau Google Sheets.") +
+    (n ? " · " + n + " en attente d'envoi" : "") + (ST.lastErr ? " · Dernière erreur : " + ST.lastErr : "");
+}
+$("#syncBtn").addEventListener("click", () => { $("#syUrl").value = ST.url; $("#syCode").value = ST.code; renderSyncSheet(); openSheet("sSync"); });
+$("#sySave").addEventListener("click", () => {
+  /* the whole setup link can be pasted in the address field: it carries the address and the code */
+  { const v = $("#syUrl").value.trim(), i = v.indexOf("#synchro="); if (i >= 0) { const p = new URLSearchParams(v.slice(i + 1)); $("#syUrl").value = (p.get("synchro") || "").trim(); if (p.get("code")) $("#syCode").value = p.get("code").trim(); } }
+  const u = $("#syUrl").value.trim();
+  if (u && !EXEC_RE.test(u)) { toast("Il faut l'adresse de l'application Web : https://script.google.com/macros/s/…/exec (pas celle de l'éditeur)", 6000); return; }
+  if (u !== ST.url) ST.lastSrv = 0;
+  ST.url = u; ST.code = $("#syCode").value.trim(); ST.lastErr = ""; showBanner(""); persist(); renderSync(); toast(u ? "Synchro réglée, envoi en cours" : "Synchro désactivée"); scheduleSync(0);
+});
+$("#syNow").addEventListener("click", () => { S.offline = false; scheduleSync(0); toast("Synchro lancée"); });
+
+/* ---------- backup file: everything on this phone, and import of a backup (e.g. the claude.ai history) ---------- */
+const BK_COLS = ["products", "tickets", "retours", "retoursFeuilles"];
+$("#bkSave").addEventListener("click", () => {
+  const out = { app: "caisse-du-stand", at: new Date().toISOString() };
+  BK_COLS.forEach(c => { out[c] = {}; rowsOf(c, []).forEach(r => out[c][r.id] = r.data); });
+  S.downloads.save({ filename: "caisse-sauvegarde-" + today() + ".json", data: new Blob([JSON.stringify(out)], { type: "application/json" }) });
+});
+$("#bkFile").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+  let d; try { d = JSON.parse(await f.text()); } catch { toast("Ce fichier n'est pas une sauvegarde de la caisse", 4000); return; }
+  let n = 0; const cols = new Set(), now = Date.now();
+  BK_COLS.forEach(c => Object.entries((d && d[c]) || {}).forEach(([id, data]) => {
+    if (!data || typeof data !== "object" || ST.recs[K(c, id)]) return;
+    ST.recs[K(c, id)] = { col: c, id, data, updatedAt: now, deleted: false, dirty: true }; n++; cols.add(c);
+  }));
+  persist(); notify(cols); scheduleSync(500);
+  toast(n ? n + " éléments importés" + (ST.url ? ", envoi au tableau en cours" : "") : "Rien de nouveau dans ce fichier", 4000);
+});
+
+/* Excel and CSV files: a normal download on the phone */
+const localDownloads = {
+  async save({ filename, data }) {
+    const blob = data instanceof Blob ? data : new Blob([data], { type: /\.csv$/.test(filename) ? "text/csv;charset=utf-8" : "application/octet-stream" });
+    const url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+};
+
+/* ---------- camera scan: same codes as the Bluetooth scanner, read on the phone itself (works offline) ---------- */
+const CAM = { stream: null, timer: 0, busy: false, detector: null, zx: null, canvas: document.createElement("canvas"), onCode: null, last: "" };
+function loadZxing() {
+  if (window.ZXing) return Promise.resolve();
+  return new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "zxing.min.js"; sc.onload = res; sc.onerror = rej; document.head.append(sc); });
+}
+async function camDecoder() {
+  if (CAM.detector || CAM.zx) return;
+  try {
+    if ("BarcodeDetector" in window) {
+      const f = await BarcodeDetector.getSupportedFormats();
+      if (f.includes("ean_13")) { CAM.detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"].filter(x => f.includes(x)) }); return; }
+    }
+  } catch {}
+  await loadZxing();
+  const Z = window.ZXing, hints = new Map();
+  hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128]);
+  hints.set(Z.DecodeHintType.TRY_HARDER, true);
+  CAM.zx = new Z.MultiFormatReader(); CAM.zx.setHints(hints);
+}
+async function camStart(onCode) {
+  CAM.onCode = onCode; CAM.last = "";
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast("Cet appareil ne donne pas accès à l'appareil photo ici.", 4000); return; }
+  openSheet("sCam"); $("#camHint").textContent = "Ouverture de l'appareil photo…"; $("#camTorch").hidden = true;
+  try {
+    await camDecoder();
+    CAM.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+  } catch (e) {
+    camStop(); closeSheets();
+    toast(e && e.name === "NotAllowedError" ? "Accès à l'appareil photo refusé. Autorise-le dans les réglages du téléphone pour cette appli." : "Impossible d'ouvrir l'appareil photo.", 5000);
+    return;
+  }
+  const v = $("#camVideo"); v.srcObject = CAM.stream; try { await v.play(); } catch {}
+  $("#camHint").textContent = "Place le code-barres dans le cadre, bien à plat et éclairé. Le scan se fait tout seul.";
+  try { const tr = CAM.stream.getVideoTracks()[0], cap = tr.getCapabilities ? tr.getCapabilities() : {}; if (cap.torch) { $("#camTorch").hidden = false; CAM.torch = false; } } catch {}
+  CAM.timer = setInterval(camTick, 180);
+}
+async function camTick() {
+  const v = $("#camVideo"); if (CAM.busy || !CAM.stream || v.readyState < 2 || !v.videoWidth) return;
+  CAM.busy = true;
+  try {
+    /* read the middle band of the picture, where the frame is */
+    const w = v.videoWidth, h = v.videoHeight, c = CAM.canvas, sh = Math.round(h * 0.56), sy = Math.round((h - sh) / 2);
+    c.width = w; c.height = sh; c.getContext("2d", { willReadFrequently: true }).drawImage(v, 0, sy, w, sh, 0, 0, w, sh);
+    let code = "";
+    if (CAM.detector) { const r = await CAM.detector.detect(c); if (r && r.length) code = r[0].rawValue; }
+    else if (CAM.zx) {
+      const Z = window.ZXing;
+      try { code = CAM.zx.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c)))).getText(); } catch {}
+    }
+    code = String(code || "").replace(/\s/g, "");
+    if (code && /^\d{8,14}$/.test(code)) {
+      /* a 13-digit code must pass its check digit before we trust it */
+      if (code.length === 13 && !eanOk(code)) return;
+      if (code === CAM.last) return;
+      CAM.last = code;
+      if (navigator.vibrate) try { navigator.vibrate(60); } catch {}
+      const cb = CAM.onCode; camStop(); closeSheets(); if (cb) cb(code);
+    }
+  } catch {} finally { CAM.busy = false; }
+}
+function camStop() {
+  clearInterval(CAM.timer); CAM.timer = 0;
+  if (CAM.stream) { CAM.stream.getTracks().forEach(t => t.stop()); CAM.stream = null; }
+  const v = $("#camVideo"); if (v) v.srcObject = null;
+}
+$("#camClose").addEventListener("click", () => { camStop(); closeSheets(); });
+$("#sCam").addEventListener("click", e => { if (e.target.id === "sCam") camStop(); });
+$("#camTorch").addEventListener("click", async () => { try { CAM.torch = !CAM.torch; await CAM.stream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: CAM.torch }] }); $("#camTorch").textContent = CAM.torch ? "Éteindre la lampe" : "Allumer la lampe"; } catch {} });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && CAM.stream) { camStop(); closeSheets(); } });
+
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) { window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); }); }
+
+/* setup link: …/#synchro=<adresse /exec>&code=<code> fills the sync settings once, then is removed from the address bar */
+function setupFromLink() {
+  const h = location.hash.slice(1); if (!h.includes("synchro=")) return false;
+  const p = new URLSearchParams(h), u = (p.get("synchro") || "").trim(), c = (p.get("code") || "").trim();
+  try { history.replaceState(null, "", location.pathname + location.search); } catch {}
+  if (!EXEC_RE.test(u) || !c) return false;
+  if (u !== ST.url) ST.lastSrv = 0;
+  ST.url = u; ST.code = c; ST.lastErr = ""; persist();
+  return true;
+}
+/* used by the automatic tests only */
+window.caisseDebug = () => ({ ST, S, handleScan, closeSheets, syncNow, dirtyCount, localDb });
+async function boot() {
+  await loadStore(); seedProducts();
+  if (setupFromLink()) setTimeout(() => toast("Synchro réglée sur ce téléphone, récupération des ventes et produits…", 4000), 300);
+  S.db = localDb; S.downloads = localDownloads; S.uid = ST.device; S.dbState = "ok";
+  $("#dlCsv").hidden = $("#rtCsv").hidden = false;
+  subscribeProducts(); subscribeTickets(); subscribeRetours();
+  await loadPrefs(); S.vFilter = null; renderAll(); askIfNeeded(); flush();
+  if (!ST.url) showBanner("Caisse prête, tout est gardé sur ce téléphone. Pour partager entre téléphones, touche « Synchro à régler » en haut.");
+  scheduleSync(500);
+}
+boot();
+})();
+</script>
+</body>
+</html>
