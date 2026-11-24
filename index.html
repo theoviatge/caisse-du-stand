@@ -1722,7 +1722,27 @@ $("#sCam").addEventListener("click", e => { if (e.target.id === "sCam") camStop(
 $("#camTorch").addEventListener("click", async () => { try { CAM.torch = !CAM.torch; await CAM.stream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: CAM.torch }] }); $("#camTorch").textContent = CAM.torch ? "Éteindre la lampe" : "Allumer la lampe"; } catch {} });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && CAM.stream) { camStop(); closeSheets(); } });
 
-if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) { window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); }); }
+/* automatic updates: each time the till comes back on screen it asks GitHub for a new version;
+   when one has arrived, the page reloads by itself as soon as nothing is in progress (empty sale, no window open) */
+let updReady = false;
+function reloadIfIdle() {
+  if (!updReady) return;
+  const busy = (S.cart && S.cart.length) || [...document.querySelectorAll(".sheet")].some(x => !x.hidden) || S.view === "retours";
+  if (busy) return;
+  updReady = false; persist(); setTimeout(() => location.reload(), 50);
+}
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+  const hadSw = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (hadSw) { updReady = true; reloadIfIdle(); } });
+  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    reloadIfIdle();
+    navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+  });
+  setInterval(() => { navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {}); reloadIfIdle(); }, 10 * 60 * 1000);
+  document.addEventListener("click", () => setTimeout(reloadIfIdle, 1500));
+}
 
 /* setup link: …/#synchro=<adresse /exec>&code=<code> fills the sync settings once, then is removed from the address bar */
 function setupFromLink() {
