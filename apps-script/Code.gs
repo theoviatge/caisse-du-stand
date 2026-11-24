@@ -56,8 +56,8 @@ function doPost(e) {
   try { body = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, error: "requête illisible" }); }
   if (body.code !== CODE) return out_({ ok: false, error: "code secret incorrect" });
   const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
   try {
+    lock.waitLock(30000);
     const sh = syncSheet_();
     const rows = rows_(sh);
     const at = {};
@@ -80,6 +80,8 @@ function doPost(e) {
     SpreadsheetApp.flush();
     try { rebuild_(all); } catch (err) { console.error(err); }
     return out_({ ok: true, max: seq });
+  } catch (err) {
+    return out_({ ok: false, error: "tableau : " + (err && err.message || err) });   // une vraie réponse plutôt qu'une page d'erreur Google
   } finally {
     lock.releaseLock();
   }
