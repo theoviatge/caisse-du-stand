@@ -204,6 +204,12 @@ nav.tabs button[aria-current="page"] { color: var(--accent); font-weight: 700; }
 .kpi.main b { font-size: 1.9rem; }
 .card { background: var(--surface); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .card h3 { margin: 0; font: 600 1.05rem var(--f-display); }
+.hdays { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+.hday { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 10px; padding: 10px 12px; font: inherit; text-align: left; cursor: pointer; }
+.hday b { font-family: var(--f-num); white-space: nowrap; }
+.hday small { color: var(--muted); display: block; }
+.hday.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+#hPlace { width: 100%; }
 .bar-row { display: grid; grid-template-columns: minmax(70px, 30%) 1fr auto; gap: 10px; align-items: center; font-size: .92rem; }
 .bar-row .bn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar { height: 10px; background: var(--bg); border-radius: 5px; overflow: hidden; }
@@ -297,6 +303,11 @@ html, body { margin: 0; padding: 0; }
     </section>
 
     <section class="view" id="v-bilan" hidden>
+      <div class="card" id="hCard"><h3>Mes bilans par endroit</h3>
+        <div class="field"><select id="hPlace" aria-label="Endroit"></select></div>
+        <p class="hint" id="hTot"></p>
+        <div class="hdays" id="hDays"></div>
+      </div>
       <div class="two">
         <div class="field"><label class="label" for="bilanDay">Journée</label><input type="date" id="bilanDay"></div>
         <div class="field"><label class="label" for="bVente">Vente</label><select id="bVente" data-vfilter></select></div>
@@ -1075,6 +1086,7 @@ function bars(box, entries, max) {
 }
 function renderBilan() {
   renderVenteFilters();
+  renderHist();
   const s = summary();
   const venE = Object.entries(s.ven).map(([k, v]) => [k, v.ca, v.n + " t."]).sort((a, b) => b[1] - a[1]);
   $("#bVenteCard").hidden = !!vf() || venE.length < 2;
@@ -1766,6 +1778,43 @@ async function boot() {
   if (!ST.url) showBanner("Caisse prête, tout est gardé sur ce téléphone. Pour partager entre téléphones, touche « Synchro à régler » en haut.");
   scheduleSync(500);
 }
+/* ---------- bilan history: every day sold at a place, one tap to open its bilan ---------- */
+function renderHist() {
+  if (!ST) return;
+  const places = {};
+  for (const r of Object.values(ST.recs)) {
+    if (r.col !== "tickets" || r.deleted || !r.data || r.data.status === "annule" || !r.data.day) continue;
+    const t = r.data, pl = t.vente || "__none";
+    const P = places[pl] || (places[pl] = { last: "", days: {} });
+    const D = P.days[t.day] || (P.days[t.day] = { ca: 0, n: 0 });
+    D.ca += Number(t.total) || 0; D.n++;
+    if (t.day > P.last) P.last = t.day;
+  }
+  const names = Object.keys(places).sort((a, b) => places[b].last.localeCompare(places[a].last));
+  $("#hCard").hidden = !names.length;
+  if (!names.length) return;
+  if (!S.hPlace || !places[S.hPlace]) S.hPlace = (vf() && places[vf()]) ? vf() : names[0];
+  const label = n => n === "__none" ? "Sans endroit indiqué" : n;
+  const sel = $("#hPlace");
+  sel.replaceChildren(...names.map(n => { const o = el("option", null, label(n) + " · " + Object.keys(places[n].days).length + " j."); o.value = n; return o; }));
+  sel.value = S.hPlace;
+  const days = Object.entries(places[S.hPlace].days).sort((a, b) => b[0].localeCompare(a[0]));
+  const tot = days.reduce((x, [, d]) => x + d.ca, 0);
+  $("#hTot").textContent = days.length + (days.length > 1 ? " journées" : " journée") + " · total " + eur(tot) + ". Touche une journée pour voir son bilan.";
+  $("#hDays").replaceChildren(...days.map(([day, d]) => {
+    const b = el("button", "hday" + (day === S.day && vf() === S.hPlace ? " on" : ""));
+    const left = el("span"); left.append(el("span", null, dayLabel(day).replace(/^./, c => c.toUpperCase())), el("small", null, day.slice(0, 4) + " · " + d.n + " tickets"));
+    b.append(left, el("b", null, eur(d.ca)));
+    b.onclick = () => {
+      S.vFilter = S.hPlace;
+      if (day !== S.day) { S.day = day; $("#bilanDay").value = day; subscribeTickets(); }
+      renderAll();
+      const k = document.querySelector("#v-bilan .kpis"); if (k) k.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    return b;
+  }));
+}
+$("#hPlace").addEventListener("change", e => { S.hPlace = e.target.value; renderHist(); });
 boot();
 })();
 </script>
