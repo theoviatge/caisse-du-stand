@@ -1,8 +1,8 @@
 /* Caisse mobile : sauvegardes automatiques (comme pour les canards).
  *
- * - Chaque nuit (vers 2 h) : une copie complète du tableau « CAISSE MOBILE - SYNCHRO »
+ * - Chaque nuit (vers 2 h) : une copie complète (on garde les 30 dernières) du tableau « CAISSE MOBILE - SYNCHRO »
  *   dans le dossier « Sauvegardes caisse », nommée « Caisse mobile – sauvegarde AAAA-MM-JJ ».
- * - Chaque lundi (vers 8 h) : un mail avec le résumé, le lien de la dernière copie
+ * - Chaque lundi (vers 6 h) : un mail avec le résumé, le lien de la dernière copie
  *   et un fichier .json à réimporter dans l'appli (Synchronisation › Importer une sauvegarde).
  *
  * À coller dans un NOUVEAU fichier du même projet Apps Script que Code.gs
@@ -14,8 +14,8 @@
 const SV_DOSSIER = "Sauvegardes caisse";             // créé à côté du tableau s'il n'existe pas
 const SV_NOM = "Caisse mobile – sauvegarde ";         // + date
 const SV_HEURE_NUIT = 2;                              // copie chaque nuit vers 2 h
-const SV_HEURE_LUNDI = 8;                             // mail le lundi vers 8 h
-const SV_GARDER_JOURS = 0;                            // 0 = garder toutes les copies ; ex. 90 = mettre à la corbeille celles de plus de 90 jours
+const SV_HEURE_LUNDI = 6;                             // mail le lundi vers 6 h
+const SV_GARDER = 30;                                 // garder les 30 copies les plus récentes (0 = tout garder)
 const SV_MAIL = "";                                   // vide = ton adresse Google ; sinon "adresse1,adresse2"
 
 /* À lancer UNE fois : crée (ou recrée) les deux déclencheurs. */
@@ -51,13 +51,11 @@ function sauvegardeNuit() {
   while (deja.hasNext()) deja.next().setTrashed(true);    // une seule copie par jour
   DriveApp.getFileById(ss.getId()).makeCopy(nom, dossier);
 
-  if (SV_GARDER_JOURS > 0) {
-    const limite = Date.now() - SV_GARDER_JOURS * 86400000;
-    const tous = dossier.getFiles();
-    while (tous.hasNext()) {
-      const f = tous.next();
-      if (f.getName().indexOf(SV_NOM) === 0 && f.getDateCreated().getTime() < limite) f.setTrashed(true);
-    }
+  if (SV_GARDER > 0) {
+    const copies = [], tous = dossier.getFiles();
+    while (tous.hasNext()) { const f = tous.next(); if (f.getName().indexOf(SV_NOM) === 0) copies.push(f); }
+    copies.sort((a, b) => b.getDateCreated() - a.getDateCreated());
+    copies.slice(SV_GARDER).forEach(f => f.setTrashed(true));
   }
 }
 
