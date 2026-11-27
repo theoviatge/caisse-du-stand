@@ -333,6 +333,7 @@ html, body { margin: 0; padding: 0; }
       <div class="lots" id="rtClientRecent"></div>
       <div class="field"><label class="label" for="rtDay">Feuille de retours du</label><input type="date" id="rtDay"></div>
       <p class="hint" id="rtHelp">Feuille en cours. Scanne les étiquettes : au premier article d'un produit, la caisse te demande son lot ; ensuite tout va dans ce lot jusqu'à ce que tu touches « changer ».</p>
+      <button class="btn primary" id="rtCam" type="button">Scanner une étiquette avec l'appareil photo</button>
       <div class="list" id="rtList"></div>
       <div class="kpis">
         <div class="kpi main"><span class="label">Total des retours</span><b id="rtTot">0,00 €</b></div>
@@ -1815,6 +1816,8 @@ function renderHist() {
   }));
 }
 $("#hPlace").addEventListener("change", e => { S.hPlace = e.target.value; renderHist(); });
+/* returns: the phone camera can scan labels too (the Bluetooth scanner still works as before) */
+$("#rtCam").addEventListener("click", () => camStart(code => handleScan(code)));
 boot();
 })();
 </script>

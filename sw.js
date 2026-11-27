@@ -1,5 +1,5 @@
 /* Caisse du stand : garde l'appli sur le téléphone pour l'ouvrir sans réseau. */
-const VERSION = "cs-v3";
+const VERSION = "cs-v4";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-180.png", "zxing.min.js"];
 
 self.addEventListener("install", e => {
